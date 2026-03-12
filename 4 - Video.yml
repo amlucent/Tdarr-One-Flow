@@ -1327,13 +1327,13 @@
       "fpEnabled": true
     },
     {
-      "name": "VIdeo - Check do_deinterlace 🔍",
+      "name": "Video - Check fl_video_filters 🔍",
       "sourceRepo": "Community",
       "pluginName": "checkFlowVariable",
       "version": "1.0.0",
       "inputsDB": {
-        "variable": "{{{args.variables.user.do_deinterlace}}}",
-        "value": "true"
+        "variable": "{{{args.variables.fl_video_filters}}}",
+        "value": ""
       },
       "id": "4R6zCBQDN",
       "position": {
@@ -3394,12 +3394,12 @@
       "fpEnabled": true
     },
     {
-      "name": "Video - Deinterlace 📼",
+      "name": "Video - Apply Video Filters (scale/deinterlace) 📼",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandCustomArguments",
       "version": "1.0.0",
       "inputsDB": {
-        "outputArguments": "-vf bwdif=1:0:1"
+        "outputArguments": "{{{args.variables.fl_video_filters}}}"
       },
       "id": "ua0Y1mByE",
       "position": {
@@ -4935,14 +4935,14 @@
     },
     {
       "source": "4R6zCBQDN",
-      "sourceHandle": "1",
+      "sourceHandle": "2",
       "target": "ua0Y1mByE",
       "targetHandle": null,
       "id": "JeFmbFLzw"
     },
     {
       "source": "4R6zCBQDN",
-      "sourceHandle": "2",
+      "sourceHandle": "1",
       "target": "ab-Oposf1",
       "targetHandle": null,
       "id": "98proMD4i"
