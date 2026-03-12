@@ -18,7 +18,7 @@ Add two new optional library variables to Tdarr-One-Flow:
 
 ### New Plugin: `plugins/js_resolve_bitdepth.js`
 
-**Runs:** In Flow 4, as an inline `customFunction` plugin, after `ffmpegCommandStart` and before `checkVideoResolution`.
+**Runs:** In Flow 4, as an inline `customFunction` plugin. Inserted by breaking the existing edge from `ffmpegCommandStart` (id: `CRWm2FTTc`) to the encoder check `nvenc` (id: `2YrneglXQ`). The new chain becomes: `CRWm2FTTc` -> `js_resolve_bitdepth` -> `js_resolve_max_resolution` -> `2YrneglXQ`.
 
 **Logic:**
 
@@ -26,15 +26,21 @@ Add two new optional library variables to Tdarr-One-Flow:
 2. Read `v_max_bitdepth` from `args.userVariables.library.v_max_bitdepth`. If unset/empty, effective depth = source depth.
 3. If source depth <= max depth: effective depth = source depth.
 4. If source depth > max depth: effective depth = max depth.
-5. Set encoder-specific flow variables based on effective depth:
+5. **Input validation:** If `v_max_bitdepth` is set but not one of `8`, `10`, `12`, throw an error: `"Invalid v_max_bitdepth value '{value}'. Must be 8, 10, or 12."`.
+6. **Logging:** Log the resolved bit depth: e.g., `"Source bit depth: 10, max allowed: 8, effective output: 8"` or `"Source bit depth: 8, v_max_bitdepth unset, preserving source depth"`.
+7. Set encoder-specific flow variables based on effective depth:
 
-| Effective Depth | `fl_pix_fmt_cpu` | `fl_pix_fmt_nvenc` | `fl_pix_fmt_qsv` | `fl_pix_fmt_vaapi` | `fl_pix_fmt_amf` | `fl_profile` |
-|---|---|---|---|---|---|---|
-| 8 | `yuv420p` | `yuv420p` | `nv12` | *(empty)* | `nv12` | `main` |
-| 10 | `yuv420p10le` | `p010le` | `p010le` | *(empty)* | `p010le` | `main10` |
-| 12 | `yuv420p12le` | `p010le` | `p012le` | *(empty)* | `p010le` | `main10` |
+| Effective Depth | `fl_pix_fmt_cpu` | `fl_pix_fmt_nvenc` | `fl_pix_fmt_qsv` | `fl_pix_fmt_vaapi` | `fl_pix_fmt_amf` | `fl_profile_cpu` | `fl_profile_other` |
+|---|---|---|---|---|---|---|---|
+| 8 | `yuv420p` | `yuv420p` | `nv12` | *(empty)* | `nv12` | `main` | `main` |
+| 10 | `yuv420p10le` | `p010le` | `p010le` | *(empty)* | `p010le` | `main10` | `main10` |
+| 12 | `yuv420p12le` | `p010le` | `p012le` | *(empty)* | `p010le` | `main12` | `main10` |
 
-Note: NVENC and AMF cap at 10-bit hardware support. VAAPI auto-selects pixel format internally; only profile is set.
+Notes:
+- NVENC and AMF cap at 10-bit hardware support. When effective depth is 12, these encoders produce 10-bit output. The plugin logs a warning: `"Encoder {encoder} does not support 12-bit; output will be 10-bit."`.
+- VAAPI auto-selects pixel format internally; only profile is set.
+- CPU (libx265) supports 12-bit natively with `main12` profile. Other hardware encoders use `main10` as their maximum profile.
+- QSV 12-bit support (`p012le`) depends on hardware generation (Ice Lake+). The plugin does not gate on hardware — if the encoder rejects the format, FFmpeg will fail with a clear error.
 
 6. Compose per-encoder argument strings:
 
@@ -89,7 +95,7 @@ to:
    - No scaling: use source resolution (as detected by `checkVideoResolution`)
    - Scaling: use the resolution label matching the max (e.g., `1080p`)
 
-6. Build the combined `-vf` video filter chain:
+6. Read `do_deinterlace` from `args.variables.user.do_deinterlace` (flow variable namespace, matching the existing pattern `{{{args.variables.user.do_deinterlace}}}`). Build the combined `-vf` video filter chain:
 
 | `do_deinterlace` | Scaling | `fl_video_filters` |
 |---|---|---|
@@ -98,21 +104,33 @@ to:
 | false/unset | Yes | `-vf scale=-2:{max_height}` |
 | true | Yes | `-vf bwdif=1:0:1,scale=-2:{max_height}` |
 
-7. Set "effective" bitrate variables by copying from the target resolution:
-   - `bitrate_effective` = `bitrate_{effective_resolution}` (e.g., `bitrate_1080p`)
-   - `maxrate_effective` = `maxrate_{effective_resolution}`
-   - `bufsize_effective` = `bufsize_{effective_resolution}`
-   - `cutoff_effective` = `cutoff_{effective_resolution}`
+Note: This plugin becomes the single source of truth for all `-vf` argument composition. Any future video filters should be added here rather than as standalone plugins.
 
-   When no scaling occurs, these are set per resolution branch as the flow routes through `checkVideoResolution` normally. The plugin sets a flag `fl_is_downscaling` (`true`/`false`) so the flow can determine whether to use effective variables.
+**Always set "effective" bitrate variables** by copying from the target resolution's computed flow variables (read from `args.variables.bitrate_X`, which were set by `js_calculate_video_bitrate`, NOT from `args.userVariables.library.bitrate_X`):
+
+- `bitrate_effective` = `args.variables['bitrate_{effective_resolution}']` (e.g., `args.variables.bitrate_1080p`)
+- `maxrate_effective` = `args.variables['maxrate_{effective_resolution}']`
+- `bufsize_effective` = `args.variables['bufsize_{effective_resolution}']`
+- `cutoff_effective` = `args.variables['cutoff_{effective_resolution}']`
+
+These are always populated regardless of whether downscaling occurs. When no scaling is needed, the plugin detects the source resolution and copies the matching resolution's bitrate variables into the effective set. This means all encoder branches can unconditionally use `bitrate_effective` etc., eliminating the need for conditional branching or an `fl_is_downscaling` flag.
+
+**4K HDR handling:** When the source is 4K HDR (detected via `args.variables.is_hdr === 'true'` and source height >= 2160):
+
+- If `v_max_resolution` is unset or `4k`: effective bitrate uses `bitrate_4k_hdr` (preserving existing HDR bitrate tier)
+- If `v_max_resolution` is set below 4K (e.g., `1080p`): effective bitrate uses `bitrate_1080p` (HDR distinction no longer relevant at lower resolutions)
+
+**Input validation:** If `v_max_resolution` is set but not one of `480p`, `576p`, `720p`, `1080p`, `1440p`, `4k`, throw an error: `"Invalid v_max_resolution value '{value}'. Must be one of: 480p, 576p, 720p, 1080p, 1440p, 4k."`.
+
+**Logging:** Log the resolution decision: e.g., `"Source resolution: 2160p (4K), max allowed: 1080p, downscaling with bitrate_1080p"` or `"Source resolution: 720p, v_max_resolution unset, preserving source resolution"`.
 
 ### Flow 4 Changes for Max Resolution
 
-1. **Replace the deinterlace plugin** (id: `ua0Y1mByE`, currently `-vf bwdif=1:0:1`) with a new `ffmpegCommandCustomArguments` that uses `{{{args.variables.fl_video_filters}}}`. This is only injected when the variable is non-empty (checked via `checkFlowVariable`).
+1. **Replace the deinterlace plugin** (id: `ua0Y1mByE`, currently `-vf bwdif=1:0:1`) with a new `ffmpegCommandCustomArguments` that uses `{{{args.variables.fl_video_filters}}}`. A `checkFlowVariable` gate checks if `fl_video_filters` is non-empty before injecting it. The existing deinterlace `checkFlowVariable` gate (id: `4R6zCBQDN`) and its edge to `ua0Y1mByE` are removed since filter logic is now handled by the plugin.
 
-2. **Update all encoder branch `ffmpegCommandCustomArguments`** to use `bitrate_effective`, `maxrate_effective`, `bufsize_effective` instead of resolution-specific variables like `bitrate_1080p`. This works for both scaled and non-scaled cases because `js_resolve_max_resolution` always populates the effective variables.
+2. **Update all encoder branch `ffmpegCommandCustomArguments`** to use `bitrate_effective`, `maxrate_effective`, `bufsize_effective` instead of resolution-specific variables like `bitrate_1080p`. Since `js_resolve_max_resolution` always populates the effective variables (even when no downscaling occurs), all branches can use them unconditionally.
 
-3. **Add flowEdges** to wire the new plugins into the existing graph between `ffmpegCommandStart` (id: `CRWm2FTTc`) and the existing `checkVideoResolution`/bitrate calculation step.
+3. **Rewire flowEdges:** Remove the edge from `ffmpegCommandStart` (id: `CRWm2FTTc`) to encoder check (id: `2YrneglXQ`). Add edges: `CRWm2FTTc` -> `js_resolve_bitdepth` -> `js_resolve_max_resolution` -> `2YrneglXQ`.
 
 ## Files Changed
 
