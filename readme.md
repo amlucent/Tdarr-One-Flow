@@ -114,6 +114,10 @@ do_hevc = true # process hevc?
 
 encoder = nvenc/qsv/amf/vaapi/cpu - Override Encoder Autodetect and manually set what encoder to use (currently only nvenc/qsv/cpu work)
 
+v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted.
+
+v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output resolution. Sources above this are downscaled. Bitrate automatically uses the target resolution's settings.
+
 ```
 
 # Quality Examples
