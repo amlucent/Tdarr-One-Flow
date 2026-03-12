@@ -1144,7 +1144,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-crf {{{args.userVariables.library.v_cq}}} {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-crf {{{args.userVariables.library.v_cq}}} {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "iZuCFsZ2C",
       "position": {
@@ -1160,7 +1160,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-global_quality {{{args.userVariables.library.v_cq}}} {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-global_quality {{{args.userVariables.library.v_cq}}} {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "AVl91JYPc",
       "position": {
@@ -1176,7 +1176,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-cq {{{args.userVariables.library.v_cq}}} {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-cq {{{args.userVariables.library.v_cq}}} {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "V-qrLnamM",
       "position": {
@@ -1385,7 +1385,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k}}} -maxrate {{{args.variables.maxrate_4k}}} -bufsize {{{args.variables.bufsize_4k}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "hpUyi4HWm",
       "position": {
@@ -1416,7 +1416,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k}}} -maxrate {{{args.variables.maxrate_4k}}} -bufsize {{{args.variables.bufsize_4k}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "jxU0G0Zzi",
       "position": {
@@ -1447,7 +1447,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k}}} -maxrate {{{args.variables.maxrate_4k}}} -bufsize {{{args.variables.bufsize_4k}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "1pSJgPS-X",
       "position": {
@@ -1463,7 +1463,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k}}} -maxrate {{{args.variables.maxrate_4k}}} -bufsize {{{args.variables.bufsize_4k}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "CyFFBF_am",
       "position": {
@@ -1518,7 +1518,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k}}} -maxrate {{{args.variables.maxrate_4k}}} -bufsize {{{args.variables.bufsize_4k}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "_XU-XYw50",
       "position": {
@@ -1546,7 +1546,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k_hdr}}} -maxrate {{{args.variables.maxrate_4k_hdr}}} -bufsize {{{args.variables.bufsize_4k_hdr}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "JKJlbvnba",
       "position": {
@@ -1586,7 +1586,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k_hdr}}} -maxrate {{{args.variables.maxrate_4k_hdr}}} -bufsize {{{args.variables.bufsize_4k_hdr}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "ZoN_EaW6o",
       "position": {
@@ -1602,7 +1602,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k_hdr}}} -maxrate {{{args.variables.maxrate_4k_hdr}}} -bufsize {{{args.variables.bufsize_4k_hdr}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "s27no-NeE",
       "position": {
@@ -1633,7 +1633,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k_hdr}}} -maxrate {{{args.variables.maxrate_4k_hdr}}} -bufsize {{{args.variables.bufsize_4k_hdr}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "ZUxngNSgz",
       "position": {
@@ -1691,7 +1691,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_4k_hdr}}} -maxrate {{{args.variables.maxrate_4k_hdr}}} -bufsize {{{args.variables.bufsize_4k_hdr}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "Q5gU7QKV5",
       "position": {
@@ -1743,7 +1743,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1440p}}} -maxrate {{{args.variables.maxrate_1440p}}} -bufsize {{{args.variables.bufsize_1440p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "FbfiCa8Cs",
       "position": {
@@ -1759,7 +1759,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1440p}}} -maxrate {{{args.variables.maxrate_1440p}}} -bufsize {{{args.variables.bufsize_1440p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "3DRBvliTU",
       "position": {
@@ -1775,7 +1775,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1440p}}} -maxrate {{{args.variables.maxrate_1440p}}} -bufsize {{{args.variables.bufsize_1440p}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "Nh35eGjUX",
       "position": {
@@ -1791,7 +1791,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1440p}}} -maxrate {{{args.variables.maxrate_1440p}}} -bufsize {{{args.variables.bufsize_1440p}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "JarNw2y9A",
       "position": {
@@ -1807,7 +1807,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1440p}}} -maxrate {{{args.variables.maxrate_1440p}}} -bufsize {{{args.variables.bufsize_1440p}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "i0rxcp9di",
       "position": {
@@ -1904,7 +1904,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1080p}}} -maxrate {{{args.variables.maxrate_1080p}}} -bufsize {{{args.variables.bufsize_1080p}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "kxs7bHIlt",
       "position": {
@@ -1920,7 +1920,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1080p}}} -maxrate {{{args.variables.maxrate_1080p}}} -bufsize {{{args.variables.bufsize_1080p}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "oOdv9DHua",
       "position": {
@@ -1936,7 +1936,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1080p}}} -maxrate {{{args.variables.maxrate_1080p}}} -bufsize {{{args.variables.bufsize_1080p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "L2LEwDt5X",
       "position": {
@@ -1952,7 +1952,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1080p}}} -maxrate {{{args.variables.maxrate_1080p}}} -bufsize {{{args.variables.bufsize_1080p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "wP36xGdtP",
       "position": {
@@ -1980,7 +1980,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_1080p}}} -maxrate {{{args.variables.maxrate_1080p}}} -bufsize {{{args.variables.bufsize_1080p}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "bP8F0AKuF",
       "position": {
@@ -2077,7 +2077,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_720p}}} -maxrate {{{args.variables.maxrate_720p}}} -bufsize {{{args.variables.bufsize_720p}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "qQ0b9XzII",
       "position": {
@@ -2117,7 +2117,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_720p}}} -maxrate {{{args.variables.maxrate_720p}}} -bufsize {{{args.variables.bufsize_720p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "Y7odARg5_",
       "position": {
@@ -2133,7 +2133,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_720p}}} -maxrate {{{args.variables.maxrate_720p}}} -bufsize {{{args.variables.bufsize_720p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "Ljo5hpC1V",
       "position": {
@@ -2149,7 +2149,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_720p}}} -maxrate {{{args.variables.maxrate_720p}}} -bufsize {{{args.variables.bufsize_720p}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "mKkyYfkYi",
       "position": {
@@ -2165,7 +2165,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_720p}}} -maxrate {{{args.variables.maxrate_720p}}} -bufsize {{{args.variables.bufsize_720p}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "jF0eYot7m",
       "position": {
@@ -2250,7 +2250,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_576p}}} -maxrate {{{args.variables.maxrate_576p}}} -bufsize {{{args.variables.bufsize_576p}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "OPks33RLb",
       "position": {
@@ -2278,7 +2278,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_576p}}} -maxrate {{{args.variables.maxrate_576p}}} -bufsize {{{args.variables.bufsize_576p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "-aH5ghKn-",
       "position": {
@@ -2294,7 +2294,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_576p}}} -maxrate {{{args.variables.maxrate_576p}}} -bufsize {{{args.variables.bufsize_576p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "WjWg-Jrim",
       "position": {
@@ -2310,7 +2310,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_576p}}} -maxrate {{{args.variables.maxrate_576p}}} -bufsize {{{args.variables.bufsize_576p}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "0sFJmc0RB",
       "position": {
@@ -2326,7 +2326,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_576p}}} -maxrate {{{args.variables.maxrate_576p}}} -bufsize {{{args.variables.bufsize_576p}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "YFPx-BNVD",
       "position": {
@@ -2447,7 +2447,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_480p}}} -maxrate {{{args.variables.maxrate_480p}}} -bufsize {{{args.variables.bufsize_480p}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -x265-params {{{args.variables.user.fl_cpu_quality}}} {{{args.variables.user.fl_cpu_main}}} {{{args.variables.fl_bitdepth_args_cpu}}}"
       },
       "id": "mCvQdZzsB",
       "position": {
@@ -2463,7 +2463,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_480p}}} -maxrate {{{args.variables.maxrate_480p}}} -bufsize {{{args.variables.bufsize_480p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_vaapi}}}"
       },
       "id": "FXjOUwNnm",
       "position": {
@@ -2479,7 +2479,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_480p}}} -maxrate {{{args.variables.maxrate_480p}}} -bufsize {{{args.variables.bufsize_480p}}} -look_ahead 32"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.fl_bitdepth_args_amf}}}"
       },
       "id": "V1oGd7yMZ",
       "position": {
@@ -2495,7 +2495,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_480p}}} -maxrate {{{args.variables.maxrate_480p}}} -bufsize {{{args.variables.bufsize_480p}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -look_ahead 32 {{{args.variables.user.fl_qsv_quality}}} {{{args.variables.user.fl_qsv_main}}} {{{args.variables.fl_bitdepth_args_qsv}}}"
       },
       "id": "6moQeYa1y",
       "position": {
@@ -3203,7 +3203,7 @@
       "version": "1.0.0",
       "inputsDB": {
         "inputArguments": "",
-        "outputArguments": "-b:v {{{args.variables.bitrate_480p}}} -maxrate {{{args.variables.maxrate_480p}}} -bufsize {{{args.variables.bufsize_480p}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}}"
+        "outputArguments": "-b:v {{{args.variables.bitrate_effective}}} -maxrate {{{args.variables.maxrate_effective}}} -bufsize {{{args.variables.bufsize_effective}}} -rc vbr -rc-lookahead 32 {{{args.variables.user.fl_nvenc_quality}}} {{{args.variables.user.fl_nvenc_b-frames}}} {{{args.variables.user.fl_nvenc_main}}} {{{args.variables.fl_bitdepth_args_nvenc}}}"
       },
       "id": "R2VJtivho",
       "position": {
