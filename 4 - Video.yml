@@ -3605,6 +3605,36 @@
         "y": -2241.1156374869884
       },
       "fpEnabled": true
+    },
+    {
+      "name": "Video - Resolve Bit Depth 🎨",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  let variables = args.variables || {};\n\n  // 1. Read source bit depth from mediaInfo\n  let sourceBitDepth = 8; // default\n  try {\n    const videoStream = (args.inputFileObj.mediaInfo || {}).streams\n      ? args.inputFileObj.mediaInfo.streams.find(s => s.codecType === 'video')\n      : null;\n    if (videoStream && videoStream.BitDepth) {\n      sourceBitDepth = parseInt(videoStream.BitDepth, 10);\n    }\n    if (isNaN(sourceBitDepth) || sourceBitDepth <= 0) sourceBitDepth = 8;\n  } catch (e) {\n    sourceBitDepth = 8;\n  }\n\n  // 2. Read v_max_bitdepth from library variables\n  const rawMax = (args.userVariables && args.userVariables.library)\n    ? args.userVariables.library.v_max_bitdepth\n    : undefined;\n\n  let maxBitDepth = null;\n  if (rawMax !== undefined && rawMax !== null && String(rawMax).trim() !== '') {\n    maxBitDepth = parseInt(String(rawMax).trim(), 10);\n    if (![8, 10, 12].includes(maxBitDepth)) {\n      throw new Error(\n        `Invalid v_max_bitdepth value '${rawMax}'. Must be 8, 10, or 12.`\n      );\n    }\n  }\n\n  // 3. Resolve effective bit depth\n  let effectiveDepth;\n  if (maxBitDepth === null) {\n    effectiveDepth = sourceBitDepth;\n    args.jobLog(`Bit depth: source=${sourceBitDepth}, v_max_bitdepth unset, preserving source depth`);\n  } else if (sourceBitDepth <= maxBitDepth) {\n    effectiveDepth = sourceBitDepth;\n    args.jobLog(`Bit depth: source=${sourceBitDepth}, max=${maxBitDepth}, preserving source (at or below cap)`);\n  } else {\n    effectiveDepth = maxBitDepth;\n    args.jobLog(`Bit depth: source=${sourceBitDepth}, max=${maxBitDepth}, capping to ${maxBitDepth}`);\n  }\n\n  // 4. Pixel format and profile mappings per encoder\n  const pixFmtMap = {\n    8:  { cpu: 'yuv420p',     nvenc: 'yuv420p', qsv: 'nv12',   vaapi: '', amf: 'nv12' },\n    10: { cpu: 'yuv420p10le', nvenc: 'p010le',  qsv: 'p010le', vaapi: '', amf: 'p010le' },\n    12: { cpu: 'yuv420p12le', nvenc: 'p010le',  qsv: 'p012le', vaapi: '', amf: 'p010le' },\n  };\n\n  const profileMap = {\n    8:  { cpu: 'main',   other: 'main' },\n    10: { cpu: 'main10', other: 'main10' },\n    12: { cpu: 'main12', other: 'main10' },\n  };\n\n  // Clamp to nearest supported depth for lookup\n  const lookupDepth = effectiveDepth >= 12 ? 12 : (effectiveDepth >= 10 ? 10 : 8);\n  const pix = pixFmtMap[lookupDepth];\n  const prof = profileMap[lookupDepth];\n\n  // 5. Log hardware limitations for 12-bit\n  if (lookupDepth === 12) {\n    args.jobLog('Warning: NVENC and AMF do not support 12-bit; output will be 10-bit on those encoders.');\n  }\n\n  // 6. Compose per-encoder argument strings\n  // For 8-bit (the current implicit default), set to empty for backward compatibility\n  if (lookupDepth === 8) {\n    variables.fl_bitdepth_args_cpu = '';\n    variables.fl_bitdepth_args_nvenc = '';\n    variables.fl_bitdepth_args_qsv = '';\n    variables.fl_bitdepth_args_vaapi = '';\n    variables.fl_bitdepth_args_amf = '';\n  } else {\n    variables.fl_bitdepth_args_cpu = `-pix_fmt ${pix.cpu} -profile:v ${prof.cpu}`;\n    variables.fl_bitdepth_args_nvenc = `-pix_fmt ${pix.nvenc} -profile:v ${prof.other}`;\n    variables.fl_bitdepth_args_qsv = `-pix_fmt ${pix.qsv} -profile:v ${prof.other}`;\n    variables.fl_bitdepth_args_vaapi = `-profile:v ${prof.other}`;\n    variables.fl_bitdepth_args_amf = `-pix_fmt ${pix.amf} -profile:v ${prof.other}`;\n  }\n\n  return {\n    outputFileObj: args.inputFileObj,\n    outputNumber: 1,\n    variables: variables,\n  };\n};\n"
+      },
+      "id": "rBitDepth1",
+      "position": {
+        "x": 1290,
+        "y": -2900
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Video - Resolve Max Resolution 📐",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  let variables = args.variables || {};\n\n  // Resolution label to height mapping\n  const resolutionMap = {\n    '480p': 480,\n    '576p': 576,\n    '720p': 720,\n    '1080p': 1080,\n    '1440p': 1440,\n    '4k': 2160,\n  };\n\n  // Height to resolution label (for source detection)\n  const heightToLabel = [\n    { maxHeight: 480, label: '480p' },\n    { maxHeight: 576, label: '576p' },\n    { maxHeight: 720, label: '720p' },\n    { maxHeight: 1080, label: '1080p' },\n    { maxHeight: 1440, label: '1440p' },\n    { maxHeight: Infinity, label: '4k' },\n  ];\n\n  // 1. Read source dimensions from mediaInfo\n  let sourceHeight = 0;\n  try {\n    const videoStream = (args.inputFileObj.mediaInfo || {}).streams\n      ? args.inputFileObj.mediaInfo.streams.find(s => s.codecType === 'video')\n      : null;\n    if (videoStream && videoStream.Height) {\n      sourceHeight = parseInt(videoStream.Height, 10);\n    }\n  } catch (e) {\n    sourceHeight = 0;\n  }\n\n  // 2. Detect source resolution label\n  if (sourceHeight === 0) {\n    args.jobLog('Warning: could not read source video height from mediaInfo, defaulting to 1080p');\n  }\n  let sourceLabel = '1080p'; // fallback\n  for (const entry of heightToLabel) {\n    if (sourceHeight <= entry.maxHeight) {\n      sourceLabel = entry.label;\n      break;\n    }\n  }\n\n  // 3. Read v_max_resolution from library variables\n  const rawMax = (args.userVariables && args.userVariables.library)\n    ? args.userVariables.library.v_max_resolution\n    : undefined;\n\n  let maxHeight = null;\n  let maxLabel = null;\n  if (rawMax !== undefined && rawMax !== null && String(rawMax).trim() !== '') {\n    const cleaned = String(rawMax).trim().toLowerCase();\n    if (!resolutionMap.hasOwnProperty(cleaned)) {\n      throw new Error(\n        `Invalid v_max_resolution value '${rawMax}'. Must be one of: 480p, 576p, 720p, 1080p, 1440p, 4k.`\n      );\n    }\n    maxHeight = resolutionMap[cleaned];\n    maxLabel = cleaned;\n  }\n\n  // 4. Determine if scaling is needed\n  let needsScaling = false;\n  let effectiveLabel = sourceLabel;\n  let scaleHeight = null;\n\n  if (maxHeight !== null && sourceHeight > maxHeight) {\n    needsScaling = true;\n    effectiveLabel = maxLabel;\n    scaleHeight = maxHeight;\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, downscaling to ${maxLabel}`);\n  } else if (maxHeight !== null) {\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, no scaling needed (at or below cap)`);\n  } else {\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), v_max_resolution unset, preserving source resolution`);\n  }\n\n  // 5. Build combined -vf video filter chain\n  const doDeinterlace = variables.user && variables.user.do_deinterlace === 'true';\n  const filters = [];\n  if (doDeinterlace) {\n    filters.push('bwdif=1:0:1');\n  }\n  if (needsScaling) {\n    filters.push(`scale=-2:${scaleHeight}`);\n  }\n\n  if (filters.length > 0) {\n    variables.fl_video_filters = `-vf ${filters.join(',')}`;\n  } else {\n    variables.fl_video_filters = '';\n  }\n\n  // 6. Handle 4K HDR bitrate routing\n  const isHdr = variables.is_hdr === 'true';\n  let bitrateLabel = effectiveLabel;\n\n  if (isHdr && sourceHeight >= 2160) {\n    if (maxHeight === null || maxHeight >= 2160) {\n      // 4K HDR source, no downscaling or max is 4k: use 4k_hdr bitrates\n      bitrateLabel = '4k_hdr';\n      args.jobLog(`HDR detected at 4K, using bitrate_4k_hdr`);\n    } else {\n      // Downscaling HDR below 4K: HDR distinction no longer relevant\n      args.jobLog(`HDR detected but downscaling to ${effectiveLabel}, using bitrate_${effectiveLabel}`);\n    }\n  }\n\n  // 7. Always set effective bitrate variables\n  // Read from flow variables (set by js_calculate_video_bitrate), not library variables\n  variables.bitrate_effective = variables[`bitrate_${bitrateLabel}`] || '';\n  variables.maxrate_effective = variables[`maxrate_${bitrateLabel}`] || '';\n  variables.bufsize_effective = variables[`bufsize_${bitrateLabel}`] || '';\n  variables.cutoff_effective = variables[`cutoff_${bitrateLabel}`] || '';\n\n  args.jobLog(`Effective bitrate tier: ${bitrateLabel} -> bitrate=${variables.bitrate_effective}, maxrate=${variables.maxrate_effective}`);\n\n  return {\n    outputFileObj: args.inputFileObj,\n    outputNumber: 1,\n    variables: variables,\n  };\n};\n"
+      },
+      "id": "rMaxRes1",
+      "position": {
+        "x": 1290,
+        "y": -2830
+      },
+      "fpEnabled": true
     }
   ],
   "flowEdges": [
@@ -5233,13 +5263,6 @@
       "id": "8_z7dQ_j1"
     },
     {
-      "source": "CRWm2FTTc",
-      "sourceHandle": "1",
-      "target": "2YrneglXQ",
-      "targetHandle": null,
-      "id": "iOzNJfG0O"
-    },
-    {
       "source": "2YrneglXQ",
       "sourceHandle": "1",
       "target": "V8F6F-I1d",
@@ -5994,6 +6017,41 @@
       "target": "UveiLLkBS",
       "targetHandle": null,
       "id": "n1RLUyR47"
+    },
+    {
+      "source": "CRWm2FTTc",
+      "sourceHandle": "1",
+      "target": "rBitDepth1",
+      "targetHandle": null,
+      "id": "eBitDepth1"
+    },
+    {
+      "source": "rBitDepth1",
+      "sourceHandle": "1",
+      "target": "rMaxRes1",
+      "targetHandle": null,
+      "id": "eMaxRes1"
+    },
+    {
+      "source": "rMaxRes1",
+      "sourceHandle": "1",
+      "target": "2YrneglXQ",
+      "targetHandle": null,
+      "id": "eMaxRes2"
+    },
+    {
+      "source": "rBitDepth1",
+      "sourceHandle": "err1",
+      "target": "ykLLIDQ7U",
+      "targetHandle": null,
+      "id": "eBitDepthErr"
+    },
+    {
+      "source": "rMaxRes1",
+      "sourceHandle": "err1",
+      "target": "ykLLIDQ7U",
+      "targetHandle": null,
+      "id": "eMaxResErr"
     }
   ]
 }
