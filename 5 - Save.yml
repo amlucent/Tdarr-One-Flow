@@ -329,18 +329,6 @@
       "fpEnabled": true
     },
     {
-      "name": "Save File - Fail Size Ratio Check 🚨🚨",
-      "sourceRepo": "Community",
-      "pluginName": "failFlow",
-      "version": "1.0.0",
-      "id": "XR-rZo9a2",
-      "position": {
-        "x": 1215.8747463646594,
-        "y": 945.8168614608062
-      },
-      "fpEnabled": true
-    },
-    {
       "name": "Save File - Duration Check OK! ✅",
       "sourceRepo": "Community",
       "pluginName": "comment",
@@ -411,8 +399,8 @@
       },
       "id": "nSj2dyRzi",
       "position": {
-        "x": 1708.79024633776,
-        "y": 1625.789840078566
+        "x": 1830,
+        "y": 1625
       },
       "fpEnabled": true
     },
@@ -733,6 +721,77 @@
         "y": 1758.6695722428103
       },
       "fpEnabled": true
+    },
+    {
+      "name": "Save File - Working file is a cache mkv? 🧮",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // MKVPropEdit edits files in place. Only run it on a working copy in the\n  // cache, never on the original library file (which may still be owned by\n  // the downloader / seeding torrent).\n  const workingFile = args.inputFileObj._id;\n  const originalFile = args.originalLibraryFile._id;\n  const isMkv = workingFile.toLowerCase().endsWith('.mkv');\n\n  if (workingFile === originalFile) {\n    args.jobLog('Working file is the original library file, skipping MKVPropEdit');\n    return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n  }\n  if (!isMkv) {\n    args.jobLog(`Working file is not mkv (${workingFile}), skipping MKVPropEdit`);\n    return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n  }\n  return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n};"
+      },
+      "id": "VVt21-K__",
+      "position": {
+        "x": 600,
+        "y": 268
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Original file, skip MKVPropEdit ℹ️",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "YDW3NSYnC",
+      "position": {
+        "x": 560,
+        "y": 400
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Set Flow Variable error_too_large 🎯",
+      "sourceRepo": "Community",
+      "pluginName": "setFlowVariable",
+      "version": "1.0.0",
+      "inputsDB": {
+        "variable": "error_too_large",
+        "value": "true"
+      },
+      "id": "odz7EmS7w",
+      "position": {
+        "x": 1215,
+        "y": 944
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Check Variable - error_too_large 🔍",
+      "sourceRepo": "Community",
+      "pluginName": "checkFlowVariable",
+      "version": "1.0.0",
+      "inputsDB": {
+        "variable": "{{{args.variables.user.error_too_large}}}",
+        "value": "true"
+      },
+      "id": "p40UxkZmG",
+      "position": {
+        "x": 1760,
+        "y": 1539
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Review file size too large ⚠️",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "5DNIwvDgn",
+      "position": {
+        "x": 1640,
+        "y": 1624
+      },
+      "fpEnabled": true
     }
   ],
   "flowEdges": [
@@ -756,13 +815,6 @@
       "target": "djauVgTtM",
       "targetHandle": null,
       "id": "zdAQWfAJT"
-    },
-    {
-      "source": "djauVgTtM",
-      "sourceHandle": "1",
-      "target": "3lzJCICtW",
-      "targetHandle": null,
-      "id": "q5IUnjBv4"
     },
     {
       "source": "3lzJCICtW",
@@ -854,13 +906,6 @@
       "target": "uQtHoPm5n",
       "targetHandle": null,
       "id": "GhmHQzbpX"
-    },
-    {
-      "source": "20dP3eM-g",
-      "sourceHandle": "1",
-      "target": "XR-rZo9a2",
-      "targetHandle": null,
-      "id": "wCCcNpGbr"
     },
     {
       "source": "uQtHoPm5n",
@@ -1094,13 +1139,6 @@
       "id": "Czm9J4yM1"
     },
     {
-      "source": "VfgJdUHHI",
-      "sourceHandle": "2",
-      "target": "nSj2dyRzi",
-      "targetHandle": null,
-      "id": "bRVb4ISKC"
-    },
-    {
       "source": "nSj2dyRzi",
       "sourceHandle": "1",
       "target": "cr8L1hv6W",
@@ -1169,6 +1207,76 @@
       "target": "ZOw6a-NGX",
       "targetHandle": null,
       "id": "bVCkm7n_i"
+    },
+    {
+      "source": "djauVgTtM",
+      "sourceHandle": "1",
+      "target": "VVt21-K__",
+      "targetHandle": null,
+      "id": "6wAXgtTPJ"
+    },
+    {
+      "source": "VVt21-K__",
+      "sourceHandle": "1",
+      "target": "3lzJCICtW",
+      "targetHandle": null,
+      "id": "_E3WjQpXg"
+    },
+    {
+      "source": "VVt21-K__",
+      "sourceHandle": "2",
+      "target": "YDW3NSYnC",
+      "targetHandle": null,
+      "id": "asv1NMCP5"
+    },
+    {
+      "source": "YDW3NSYnC",
+      "sourceHandle": "1",
+      "target": "NsPaSlbgC",
+      "targetHandle": null,
+      "id": "mLF7VxjzV"
+    },
+    {
+      "source": "20dP3eM-g",
+      "sourceHandle": "1",
+      "target": "odz7EmS7w",
+      "targetHandle": null,
+      "id": "Pu0zGofu3"
+    },
+    {
+      "source": "odz7EmS7w",
+      "sourceHandle": "1",
+      "target": "55e9r2oAv",
+      "targetHandle": null,
+      "id": "Om2MgmvZf"
+    },
+    {
+      "source": "VfgJdUHHI",
+      "sourceHandle": "2",
+      "target": "p40UxkZmG",
+      "targetHandle": null,
+      "id": "iDSS8ZQ-h"
+    },
+    {
+      "source": "p40UxkZmG",
+      "sourceHandle": "1",
+      "target": "5DNIwvDgn",
+      "targetHandle": null,
+      "id": "g7aAxQR31"
+    },
+    {
+      "source": "p40UxkZmG",
+      "sourceHandle": "2",
+      "target": "nSj2dyRzi",
+      "targetHandle": null,
+      "id": "kvFfdW65L"
+    },
+    {
+      "source": "5DNIwvDgn",
+      "sourceHandle": "1",
+      "target": "ZOw6a-NGX",
+      "targetHandle": null,
+      "id": "sFVvzqWpx"
     }
   ]
 }

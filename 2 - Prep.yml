@@ -46,8 +46,8 @@
       },
       "id": "_iFkU1C17",
       "position": {
-        "x": 941.5713266286093,
-        "y": 2125.3592873373686
+        "x": 1100,
+        "y": 2410
       },
       "fpEnabled": true
     },
@@ -767,44 +767,8 @@
       "version": "1.0.0",
       "id": "EO3A17CY1",
       "position": {
-        "x": 591.9298708463547,
-        "y": -376.1241924037901
-      },
-      "fpEnabled": true
-    },
-    {
-      "name": "Prep & Clean - Error Getting File Extension ⚠️",
-      "sourceRepo": "Community",
-      "pluginName": "resetFlowError",
-      "version": "1.0.0",
-      "id": "gkuRtonPh",
-      "position": {
-        "x": 834.9462088208456,
-        "y": -479.79954555736026
-      },
-      "fpEnabled": true
-    },
-    {
-      "name": "Prep & Clean - File is not mkv ✅",
-      "sourceRepo": "Community",
-      "pluginName": "comment",
-      "version": "1.0.0",
-      "id": "KmrUSEAlg",
-      "position": {
-        "x": 682.1061964330196,
-        "y": -480.33654366354426
-      },
-      "fpEnabled": true
-    },
-    {
-      "name": "Prep & Clean - File is mkv ✅",
-      "sourceRepo": "Community",
-      "pluginName": "comment",
-      "version": "1.0.0",
-      "id": "AZnEHlAaQ",
-      "position": {
-        "x": 489.5467281806998,
-        "y": -512.0061895214443
+        "x": 1290,
+        "y": 2310
       },
       "fpEnabled": true
     },
@@ -815,8 +779,8 @@
       "version": "1.0.0",
       "id": "ep7lqdYwl",
       "position": {
-        "x": 490.7370302561751,
-        "y": -335.67212010946366
+        "x": 1150,
+        "y": 2310
       },
       "fpEnabled": true
     },
@@ -1180,23 +1144,8 @@
       "version": "1.0.0",
       "id": "CRbRhtXaL",
       "position": {
-        "x": 490.1656800384857,
-        "y": -420.49275406400744
-      },
-      "fpEnabled": true
-    },
-    {
-      "name": "Prep & Clean - Check if mkv 🔍",
-      "sourceRepo": "Community",
-      "pluginName": "checkFileExtension",
-      "version": "1.0.0",
-      "inputsDB": {
-        "extensions": "mkv"
-      },
-      "id": "NCG23FkZ3",
-      "position": {
-        "x": 656.2856596642484,
-        "y": -597.2147021708244
+        "x": 1212,
+        "y": 2220
       },
       "fpEnabled": true
     },
@@ -1339,6 +1288,33 @@
       "position": {
         "x": 1553.472933332675,
         "y": 2692.209447810073
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Prep & Clean - Working file is a cache mkv? 🧮",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // MKVPropEdit edits files in place. Only run it on a working copy in the\n  // cache, never on the original library file (which may still be owned by\n  // the downloader / seeding torrent).\n  const workingFile = args.inputFileObj._id;\n  const originalFile = args.originalLibraryFile._id;\n  const isMkv = workingFile.toLowerCase().endsWith('.mkv');\n\n  if (workingFile === originalFile) {\n    args.jobLog('Working file is the original library file, skipping MKVPropEdit');\n    return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n  }\n  if (!isMkv) {\n    args.jobLog(`Working file is not mkv (${workingFile}), skipping MKVPropEdit`);\n    return { outputFileObj: args.inputFileObj, outputNumber: 2, variables: args.variables };\n  }\n  return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n};"
+      },
+      "id": "N43IEh5OZ",
+      "position": {
+        "x": 1212,
+        "y": 2130
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Prep & Clean - Original or not mkv, skip MKVPropEdit ℹ️",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "OH2zjQBoW",
+      "position": {
+        "x": 1040,
+        "y": 2220
       },
       "fpEnabled": true
     }
@@ -1532,76 +1508,6 @@
       "target": "vX8lBfgvT",
       "targetHandle": null,
       "id": "yCjFog4wz"
-    },
-    {
-      "source": "NCG23FkZ3",
-      "sourceHandle": "1",
-      "target": "AZnEHlAaQ",
-      "targetHandle": null,
-      "id": "alS8Wy2Pc"
-    },
-    {
-      "source": "AZnEHlAaQ",
-      "sourceHandle": "1",
-      "target": "CRbRhtXaL",
-      "targetHandle": null,
-      "id": "2mFURzd_z"
-    },
-    {
-      "source": "NCG23FkZ3",
-      "sourceHandle": "2",
-      "target": "KmrUSEAlg",
-      "targetHandle": null,
-      "id": "G9Q5cMdna"
-    },
-    {
-      "source": "NCG23FkZ3",
-      "sourceHandle": "err1",
-      "target": "gkuRtonPh",
-      "targetHandle": null,
-      "id": "8wg_Vi08U"
-    },
-    {
-      "source": "CRbRhtXaL",
-      "sourceHandle": "err1",
-      "target": "EO3A17CY1",
-      "targetHandle": null,
-      "id": "HYHd5fip4"
-    },
-    {
-      "source": "CRbRhtXaL",
-      "sourceHandle": "1",
-      "target": "ep7lqdYwl",
-      "targetHandle": null,
-      "id": "4dj2xEpeL"
-    },
-    {
-      "source": "KmrUSEAlg",
-      "sourceHandle": "1",
-      "target": "wpTkxtpa6",
-      "targetHandle": null,
-      "id": "P6LosuM66"
-    },
-    {
-      "source": "EO3A17CY1",
-      "sourceHandle": "1",
-      "target": "wpTkxtpa6",
-      "targetHandle": null,
-      "id": "VsKu-cme4"
-    },
-    {
-      "source": "ep7lqdYwl",
-      "sourceHandle": "1",
-      "target": "wpTkxtpa6",
-      "targetHandle": null,
-      "id": "Om06rdyON"
-    },
-    {
-      "source": "gkuRtonPh",
-      "sourceHandle": "1",
-      "target": "wpTkxtpa6",
-      "targetHandle": null,
-      "id": "hsk0Igg8z"
     },
     {
       "source": "4HcUvOUMU",
@@ -2087,18 +1993,67 @@
       "id": "AD-SUfmPt"
     },
     {
+      "source": "d8balkJHB",
+      "sourceHandle": "1",
+      "target": "wpTkxtpa6",
+      "targetHandle": null,
+      "id": "wt9QTOTt3"
+    },
+    {
       "source": "uLz4RKa2R",
+      "sourceHandle": "1",
+      "target": "N43IEh5OZ",
+      "targetHandle": null,
+      "id": "mbgVJYp3W"
+    },
+    {
+      "source": "N43IEh5OZ",
+      "sourceHandle": "1",
+      "target": "CRbRhtXaL",
+      "targetHandle": null,
+      "id": "lqsIUhVrh"
+    },
+    {
+      "source": "N43IEh5OZ",
+      "sourceHandle": "2",
+      "target": "OH2zjQBoW",
+      "targetHandle": null,
+      "id": "AbLaaIlV_"
+    },
+    {
+      "source": "CRbRhtXaL",
+      "sourceHandle": "1",
+      "target": "ep7lqdYwl",
+      "targetHandle": null,
+      "id": "mTaHao9cB"
+    },
+    {
+      "source": "CRbRhtXaL",
+      "sourceHandle": "err1",
+      "target": "EO3A17CY1",
+      "targetHandle": null,
+      "id": "bvBODVKaB"
+    },
+    {
+      "source": "ep7lqdYwl",
       "sourceHandle": "1",
       "target": "_iFkU1C17",
       "targetHandle": null,
-      "id": "ANoqoQvCL"
+      "id": "smBEmBUHt"
     },
     {
-      "source": "d8balkJHB",
+      "source": "EO3A17CY1",
       "sourceHandle": "1",
-      "target": "NCG23FkZ3",
+      "target": "_iFkU1C17",
       "targetHandle": null,
-      "id": "hpwx52a7y"
+      "id": "Bscc6887b"
+    },
+    {
+      "source": "OH2zjQBoW",
+      "sourceHandle": "1",
+      "target": "_iFkU1C17",
+      "targetHandle": null,
+      "id": "86MHCKjY_"
     }
   ]
 }
