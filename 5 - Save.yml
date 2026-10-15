@@ -792,6 +792,73 @@
         "y": 1624
       },
       "fpEnabled": true
+    },
+    {
+      "name": "Save File - Check Variable - save_mode replace 🔍",
+      "sourceRepo": "Community",
+      "pluginName": "checkFlowVariable",
+      "version": "1.0.0",
+      "inputsDB": {
+        "variable": "{{{args.userVariables.library.save_mode}}}",
+        "value": "replace"
+      },
+      "id": "6VbHV-9sJ",
+      "position": {
+        "x": 2090,
+        "y": 1535
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Replace Original File In Place ⏳",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "id": "hGbm7CkZ9",
+      "position": {
+        "x": 2090,
+        "y": 1625
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Notify Sonarr Rescan & Rename 🧮",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // Option A: after replacing a library file in place, tell Sonarr to rescan the\n  // series and rename the new file. Non-fatal: any problem is logged and the\n  // flow continues (output 2).\n  const lib = (args.userVariables && args.userVariables.library) || {};\n  const url = String(lib.sonarr_url || '').replace(/\\/+$/, '');\n  const key = String(lib.sonarr_api_key || '');\n  const done = (n) => ({ outputFileObj: args.inputFileObj, outputNumber: n, variables: args.variables });\n  if (!url || !key) { args.jobLog('sonarr_url / sonarr_api_key not set, skipping Sonarr notify'); return done(2); }\n\n  const api = async (path, opts = {}) => {\n    const res = await fetch(`${url}/api/v3/${path}`, {\n      ...opts, headers: { 'X-Api-Key': key, 'Content-Type': 'application/json' },\n    });\n    if (!res.ok) throw new Error(`${opts.method || 'GET'} ${path} -> HTTP ${res.status}`);\n    const text = await res.text();\n    return text ? JSON.parse(text) : null;\n  };\n  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));\n  const waitFor = async (cmd) => {\n    for (let i = 0; i < 60; i += 1) {\n      const s = await api(`command/${cmd.id}`);\n      if (['completed', 'failed', 'aborted'].includes(s.status)) return s;\n      await sleep(2000);\n    }\n    return { status: 'timeout' };\n  };\n\n  try {\n    const file = args.inputFileObj._id;\n    const series = (await api('series')).find((s) => file.startsWith(`${s.path.replace(/\\/+$/, '')}/`));\n    if (!series) { args.jobLog(`No Sonarr series owns ${file}`); return done(2); }\n    args.jobLog(`Sonarr series: ${series.title} (id ${series.id}), rescanning`);\n    const rescan = await waitFor(await api('command', { method: 'POST', body: JSON.stringify({ name: 'RescanSeries', seriesId: series.id }) }));\n    args.jobLog(`RescanSeries: ${rescan.status}`);\n\n    const base = file.replace(/\\.[^./]+$/, '');\n    const ef = (await api(`episodefile?seriesId=${series.id}`)).find((f) => f.path.replace(/\\.[^./]+$/, '') === base);\n    if (!ef) { args.jobLog(`Sonarr has no episode file matching ${file} after rescan`); return done(2); }\n    const rename = await waitFor(await api('command', { method: 'POST', body: JSON.stringify({ name: 'RenameFiles', seriesId: series.id, files: [ef.id] }) }));\n    args.jobLog(`RenameFiles (episodefile ${ef.id}): ${rename.status}`);\n    return done(rename.status === 'completed' ? 1 : 2);\n  } catch (err) {\n    args.jobLog(`Sonarr notify failed: ${err.message}`);\n    return done(2);\n  }\n};"
+      },
+      "id": "KTs9hW9i3",
+      "position": {
+        "x": 2090,
+        "y": 1715
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Replaced In Place & Sonarr Notified ✅",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "cSDZogHr1",
+      "position": {
+        "x": 2030,
+        "y": 1805
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Replaced In Place, Sonarr Notify Skipped ⚠️",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "iUSshm7jz",
+      "position": {
+        "x": 2170,
+        "y": 1805
+      },
+      "fpEnabled": true
     }
   ],
   "flowEdges": [
@@ -1265,18 +1332,67 @@
       "id": "g7aAxQR31"
     },
     {
-      "source": "p40UxkZmG",
-      "sourceHandle": "2",
-      "target": "nSj2dyRzi",
-      "targetHandle": null,
-      "id": "kvFfdW65L"
-    },
-    {
       "source": "5DNIwvDgn",
       "sourceHandle": "1",
       "target": "ZOw6a-NGX",
       "targetHandle": null,
       "id": "sFVvzqWpx"
+    },
+    {
+      "source": "p40UxkZmG",
+      "sourceHandle": "2",
+      "target": "6VbHV-9sJ",
+      "targetHandle": null,
+      "id": "qyZiX_9VF"
+    },
+    {
+      "source": "6VbHV-9sJ",
+      "sourceHandle": "1",
+      "target": "hGbm7CkZ9",
+      "targetHandle": null,
+      "id": "YRMvOmr7E"
+    },
+    {
+      "source": "6VbHV-9sJ",
+      "sourceHandle": "2",
+      "target": "nSj2dyRzi",
+      "targetHandle": null,
+      "id": "Eth2oZe8_"
+    },
+    {
+      "source": "hGbm7CkZ9",
+      "sourceHandle": "1",
+      "target": "KTs9hW9i3",
+      "targetHandle": null,
+      "id": "lZMelE_Pp"
+    },
+    {
+      "source": "KTs9hW9i3",
+      "sourceHandle": "1",
+      "target": "cSDZogHr1",
+      "targetHandle": null,
+      "id": "3WrX_0HRF"
+    },
+    {
+      "source": "KTs9hW9i3",
+      "sourceHandle": "2",
+      "target": "iUSshm7jz",
+      "targetHandle": null,
+      "id": "kKEmNjM7Q"
+    },
+    {
+      "source": "cSDZogHr1",
+      "sourceHandle": "1",
+      "target": "ko1ZB0KWL",
+      "targetHandle": null,
+      "id": "q-JxYPWuH"
+    },
+    {
+      "source": "iUSshm7jz",
+      "sourceHandle": "1",
+      "target": "ko1ZB0KWL",
+      "targetHandle": null,
+      "id": "PQ6jAltJi"
     }
   ]
 }

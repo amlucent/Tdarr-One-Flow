@@ -72,6 +72,9 @@ Flow 1 sets encoder-specific parameters. Supported encoders: `nvenc` (NVIDIA), `
 | `encoder` | Override auto-detected encoder |
 | `v_max_bitdepth` | Maximum output bit depth (preserves source if unset) |
 | `v_max_resolution` | Maximum output resolution (preserves source if unset) |
+| `save_mode` | `replace` — replace the library file in place instead of moving to `output_dir_done` (for libraries pointed at an existing media library) |
+| `sonarr_url` | With `save_mode=replace`: Sonarr base URL, e.g. `http://sonarr.luc3nt-media.svc.cluster.local:8989` |
+| `sonarr_api_key` | With `save_mode=replace`: Sonarr API key used to rescan the series and rename the replaced file |
 
 ## Known Limitations
 
