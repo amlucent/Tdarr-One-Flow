@@ -77,6 +77,8 @@ Flow 1 sets encoder-specific parameters. Supported encoders: `nvenc` (NVIDIA), `
 | `save_mode` | `replace` — replace the library file in place instead of moving to `output_dir_done` (for libraries pointed at an existing media library) |
 | `sonarr_url` | With `save_mode=replace`: Sonarr base URL, e.g. `http://sonarr.luc3nt-media.svc.cluster.local:8989` |
 | `sonarr_api_key` | With `save_mode=replace`: Sonarr API key used to rescan the series and rename the replaced file |
+| `radarr_url` | With `save_mode=replace`: Radarr base URL, e.g. `http://radarr:7878` (movie libraries) |
+| `radarr_api_key` | With `save_mode=replace`: Radarr API key used to rescan the movie and rename the replaced file. If both apps are set, the one whose series/movie folder contains the file is used |
 | `low_bitrate_skip_ratio` | With `save_mode=replace`: skip encoding when the source video bitrate is below this fraction of the resolution's target (default `0.9`) |
 | `protect_hardlinks_root` | The default-track fix never edits an original in place if it lives under, or is hard-linked into, this directory (default `/media/downloads`, so seeding torrents are untouched) |
 | `force_downscale` | `true` — with `v_max_resolution` (any library), the Input skip gate encodes HEVC/AV1 sources larger than the cap (sets `oversize_encode`, which lets the Video flow past its `do_hevc` and AV1 skips). Off by default so libraries whose 4K copies should be kept are never downscaled |

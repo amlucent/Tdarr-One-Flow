@@ -66,7 +66,7 @@ The original Tdarr-One-Flow only works as a pipeline: files go in an input folde
 What replace mode does:
 - The encoded file replaces the original atomically: it is copied into a hidden `.tdarr-partial/` folder next to the original (Sonarr, Plex and Jellyfin ignore dot-folders), verified, then renamed over the original, so the episode never disappears mid-replace.
 - If the encode fails a review check (duration, size), it goes to `output_dir_review` and the original is **kept**.
-- With `sonarr_url` / `sonarr_api_key` set, Sonarr rescans the series and renames the new file.
+- With `sonarr_url` / `sonarr_api_key` (TV) or `radarr_url` / `radarr_api_key` (movies) set, Sonarr or Radarr rescans the series or movie and renames the new file, so its records (size, codec, file name) match the replaced file. If a library has both, the app whose series/movie folder contains the file is used. Without them the file is still replaced, and the app only notices at its next disk scan.
 - A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1 (unless it is larger than `v_max_resolution` and the library has `force_downscale = true`, see Maximum Resolution), or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
 
 # Maximum Resolution, e.g. 4K down to 1080p (added in this fork)
@@ -193,6 +193,10 @@ sonarr_url = http://sonarr:8989 # With save_mode = replace: Sonarr rescans the s
 
 sonarr_api_key = <key> # With save_mode = replace
 
+radarr_url = http://radarr:7878 # With save_mode = replace on a movie library: Radarr rescans the movie and renames the replaced file
+
+radarr_api_key = <key> # With save_mode = replace
+
 low_bitrate_skip_ratio = 0.9 # With save_mode = replace: skip encoding sources below this fraction of the target bitrate (default 0.9)
 
 force_downscale = true # With v_max_resolution: also re-encode HEVC/AV1 files larger than v_max_resolution so they get downscaled (any library, including replace mode). Leave unset to keep 4K HEVC/AV1 files as they are (default off)
@@ -291,7 +295,7 @@ Fork changes (amlucent/Tdarr-One-Flow)
 
  - Added v_max_resolution (downscale above a maximum resolution, bitrate follows the target tier) and v_max_bitdepth, with a combined scale + deinterlace filter chain
  - Resolution and bit depth fall back to ffprobe when MediaInfo data is empty (previously every file landed on the 480p bitrate tier and HDR was encoded as 8-bit)
- - Added replace-in-place mode (save_mode = replace) with atomic replace, Sonarr rescan/rename, and a skip gate for HEVC/AV1 and low-bitrate sources
+ - Added replace-in-place mode (save_mode = replace) with atomic replace, Sonarr/Radarr rescan/rename, and a skip gate for HEVC/AV1 and low-bitrate sources
  - Dolby Vision video is stream-copied instead of re-encoded; audio cleanup and default tracks still run
  - Default audio/subtitle tracks are set on every processed file, in the library's `default_track_language` (English by default; `off` disables)
  - `v_max_resolution` now fits sources inside the cap's 16:9 box (widescreen 4K becomes 1920x802, not 2586x1080), and `force_downscale = true` downscales 4K HEVC/AV1 too, in any library (opt-in per library)
