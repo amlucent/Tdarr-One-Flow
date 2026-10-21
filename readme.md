@@ -22,11 +22,11 @@ I have a library for low quality, high quality, Animation, Movies.  Each has the
 - If a lossless audio track exists, encode in opus (can disable, still needs refinement, as sometimes encodes high bitrate non-lossless tracks)
 - Deinterlace .ts files. (tv DVR broadcasts)
 - Export Embedded Subtitles (Could use more testing and refinement)
-- Maximum output resolution (`v_max_resolution`): sources above it are downscaled, and the bitrate follows the target resolution's setting
+- Maximum output resolution (`v_max_resolution`), e.g. store 4K releases as 1080p: sources above it are downscaled, and the bitrate follows the target resolution's setting (see Maximum Resolution below)
 - Maximum output bit depth (`v_max_bitdepth`): sources at or below it keep their native depth (e.g. 10-bit HDR stays 10-bit)
 - Dolby Vision protection: DV sources (all profiles, including profile 5 with no HDR10 fallback) keep their video untouched
 - Default tracks: the best English audio track becomes the default with no default subtitle; for foreign-language audio the English subtitle becomes the default (see Default Tracks below)
-- Replace-in-place mode (`save_mode = replace`) for running against an existing library, with a Sonarr rescan/rename after each file and a skip gate so already-efficient files aren't re-encoded
+- Replace-in-place mode (`save_mode = replace`): point Tdarr at an existing library, not just new downloads, with a Sonarr rescan/rename after each file and a skip gate so already-efficient files aren't re-encoded (see Replace-in-place Mode below)
 
   
 
@@ -58,12 +58,29 @@ I broke it down into 5 steps/flows:
   - Dolby Vision video is copied, never re-encoded, so those files only shrink as much as audio cleanup allows.  HDR10+ is skipped as HEVC by default; with `do_hevc = true` it would be re-encoded and lose its HDR10+ metadata.
   - .ts files in 720p often end up with an unexpected bitrate.  Have not been able to figure out why yet.
 
-# Replace-in-place Mode
-Set `save_mode = replace` on a library pointed at an existing media library (instead of a download/input folder):
+# Replace-in-place Mode (added in this fork)
+The original Tdarr-One-Flow only works as a pipeline: files go in an input folder, get encoded, and come out in an output folder before they are moved into your library. That only helps with new downloads. This fork adds a replace mode so Tdarr can be pointed at an **existing media library** and shrink what is already there, file by file, without moving anything around.
+
+**How to use it:** create a library whose folder is your existing media (e.g. one show, or your whole TV folder) and add `save_mode = replace` to its variables. Leave `save_mode` unset (or remove it) for normal input/output libraries; both kinds can share the same flows.
+
+What replace mode does:
 - The encoded file replaces the original atomically: it is copied into a hidden `.tdarr-partial/` folder next to the original (Sonarr, Plex and Jellyfin ignore dot-folders), verified, then renamed over the original, so the episode never disappears mid-replace.
 - If the encode fails a review check (duration, size), it goes to `output_dir_review` and the original is **kept**.
 - With `sonarr_url` / `sonarr_api_key` set, Sonarr rescans the series and renames the new file.
 - A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1, or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
+
+# Maximum Resolution, e.g. 4K down to 1080p (added in this fork)
+The practical use: you can keep grabbing 4K releases but store them as 1080p, the standard most of your players handle natively. Then Plex/Jellyfin don't have to transcode 4K on the fly for devices that can't play it, which is expensive on the server, and the files are much smaller.
+
+**How to use it:** add `v_max_resolution = 1080p` to the library's variables. Any source taller than 1080 lines is downscaled to 1080p (aspect ratio kept) and encoded at your `bitrate_1080p`, not the 4K bitrate. Sources at or below 1080p are not scaled. Valid values: `480p`, `576p`, `720p`, `1080p`, `1440p`, `4k`.
+
+**How to turn it off:** remove `v_max_resolution` from the library (or leave it empty). Every file then keeps its source resolution, and 4K sources use `bitrate_4k` / `bitrate_4k_hdr`. An invalid value fails the job with an error rather than guessing.
+
+Things to know:
+- HDR is kept when downscaling: 10-bit sources stay 10-bit (unless `v_max_bitdepth = 8`), and the 1080p bitrate tier is used.
+- Most 4K releases are already HEVC, and HEVC is only encoded (so only downscaled) with `do_hevc = true` in an input/output library. In replace mode the skip gate currently skips HEVC even when it is above `v_max_resolution`, so 4K HEVC files in an existing library stay 4K.
+- Dolby Vision video is never re-encoded, so DV files keep their original resolution.
+- The job log shows what happened: `Resolution: source=2160p (4k), max=1080p, downscaling to 1080p`.
 
 # Default Tracks
 Every file that goes through the flow gets its default flags fixed with `mkvpropedit` (header only, no remux, takes about a second):
@@ -134,7 +151,7 @@ encoder = nvenc/qsv/amf/vaapi/cpu - Override Encoder Autodetect and manually set
 
 v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted.
 
-v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output resolution. Sources above this are downscaled. Bitrate automatically uses the target resolution's settings.
+v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output resolution, e.g. 1080p to store 4K as 1080p. Sources above this are downscaled. Bitrate automatically uses the target resolution's settings. Remove or leave empty to keep source resolution.
 
 save_mode = replace # Replace the library file in place instead of moving it to output_dir_done (see Replace-in-place Mode)
 
