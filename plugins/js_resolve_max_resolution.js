@@ -33,13 +33,21 @@ module.exports = async (args) => {
   } catch (e) {
     sourceHeight = 0;
   }
+  // mediaInfo is empty when the library's MediaInfo scan is off, which left every
+  // file at height 0 and (via the lookup below) on the 480p bitrate tier. Fall
+  // back to ffprobe, which Tdarr always has.
+  if (!sourceHeight) {
+    const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];
+    const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));
+    if (v && v.height) sourceHeight = parseInt(v.height, 10) || 0;
+  }
 
   // 2. Detect source resolution label
   if (sourceHeight === 0) {
     args.jobLog('Warning: could not read source video height from mediaInfo, defaulting to 1080p');
   }
   let sourceLabel = '1080p'; // fallback
-  for (const entry of heightToLabel) {
+  for (const entry of (sourceHeight ? heightToLabel : [])) {
     if (sourceHeight <= entry.maxHeight) {
       sourceLabel = entry.label;
       break;

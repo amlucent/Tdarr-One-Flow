@@ -810,16 +810,19 @@
       "fpEnabled": true
     },
     {
-      "name": "Save File - Replace Original File In Place ⏳",
+      "name": "Save File - Replace Original File In Place (atomic) ⏳",
       "sourceRepo": "Community",
-      "pluginName": "replaceOriginalFile",
+      "pluginName": "customFunction",
       "version": "1.0.0",
       "id": "hGbm7CkZ9",
       "position": {
         "x": 2090,
         "y": 1625
       },
-      "fpEnabled": true
+      "fpEnabled": true,
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // Atomic in-place replace. The stock replaceOriginalFile plugin renames the\n  // original away before moving the new file in; a Sonarr disk scan landing in\n  // that gap sees the episode as deleted and recycles its sidecars, including\n  // Tdarr's .tmp (NCIS Hawai'i S02E11, 2026-10-16). Here the original path always\n  // exists: copy into a hidden subfolder, fsync + verify size, then rename() over\n  // the original in one step. The temp must not sit next to the episode: Sonarr's\n  // extra-file import picks up any sibling (even *.partial~) and renames it to\n  // the episode's name (The 100 S07E16, 2026-10-16). Sonarr, Plex and Jellyfin\n  // all skip dot-folders, and it's on the same filesystem so rename() stays atomic.\n  let fsp;\n  try { fsp = require('fs').promises; } catch (e) { fsp = args.deps.fsextra.promises || args.deps.fsextra; }\n  const path = (() => { try { return require('path'); } catch (e) { return args.deps.path; } })();\n\n  const working = args.inputFileObj._id;\n  const original = args.originalLibraryFile._id;\n  if (working === original) {\n    args.jobLog('File unchanged, nothing to replace');\n    return { outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables };\n  }\n\n  const target = path.join(path.dirname(original), path.parse(original).name + path.extname(working));\n  const tmpDir = path.join(path.dirname(original), '.tdarr-partial');\n  const tmp = path.join(tmpDir, `${path.basename(target)}.partial~`);\n  const srcSize = (await fsp.stat(working)).size;\n  try {\n    await fsp.mkdir(tmpDir, { recursive: true });\n    await fsp.copyFile(working, tmp);\n    const fh = await fsp.open(tmp, 'r+');\n    await fh.sync();\n    await fh.close();\n    const tmpSize = (await fsp.stat(tmp)).size;\n    if (tmpSize !== srcSize) throw new Error(`copy size mismatch: ${tmpSize} != ${srcSize}`);\n    await fsp.rename(tmp, target);\n  } catch (err) {\n    await fsp.unlink(tmp).catch(() => {});\n    await fsp.rmdir(tmpDir).catch(() => {});\n    throw new Error(`Atomic replace failed, original left untouched: ${err.message}`);\n  }\n  // Another job in the same folder may still be using it; only removed once empty.\n  await fsp.rmdir(tmpDir).catch(() => {});\n  // Container changed (e.g. .mp4 -> .mkv): the new file is in place, drop the old one.\n  if (target !== original) await fsp.unlink(original);\n  args.jobLog(`Replaced in place: ${target} (${srcSize} bytes)`);\n  return { outputFileObj: { _id: target }, outputNumber: 1, variables: args.variables };\n};\n"
+      }
     },
     {
       "name": "Save File - Notify Sonarr Rescan & Rename 🧮",
@@ -859,6 +862,49 @@
         "y": 1805
       },
       "fpEnabled": true
+    },
+    {
+      "name": "Save File - Check Variable - save_mode replace (review) 🔍",
+      "sourceRepo": "Community",
+      "pluginName": "checkFlowVariable",
+      "version": "1.0.0",
+      "inputsDB": {
+        "variable": "{{{args.userVariables.library.save_mode}}}",
+        "value": "replace"
+      },
+      "id": "rvwRplc01",
+      "position": {
+        "x": 1149,
+        "y": 1950
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Replace mode: original KEPT, encode left in review dir ⚠️",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "rvwKeep01",
+      "position": {
+        "x": 1149,
+        "y": 2040
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Save File - Fix Default Tracks 🎚️",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "id": "dfltTrkSv1",
+      "position": {
+        "x": 2090,
+        "y": 1450
+      },
+      "fpEnabled": true,
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // Fix default audio/subtitle flags with mkvpropedit (header-only, no remux).\n  // - Audio: best English track (non-commentary, most channels) becomes the only\n  //   default. No English audio: keep the current default (foreign film).\n  // - Subtitles: English default audio -> no default subtitles (forced flags are\n  //   kept, so players still show forced subs). Explicitly non-English default\n  //   audio -> English full subtitle (not SDH/forced) becomes default.\n  // Must run after the last ffmpeg step: ffmpeg's mkv muxer re-marks forced\n  // subtitles as default on a plain -c copy remux (verified 2026-10-21).\n  // Never fails the flow; any problem is logged and the file left as-is.\n  const { execFileSync } = require('child_process');\n  const fs = require('fs');\n  const lib = (args.userVariables && args.userVariables.library) || {};\n  const file = args.inputFileObj._id;\n  const done = () => ({ outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables });\n  const log = (m) => args.jobLog(`Default tracks: ${m}`);\n\n  try {\n    if (!/\\.mkv$/i.test(file)) { log('not an mkv, skipping'); return done(); }\n\n    // Editing the original in place also edits every hard link to it. Never touch\n    // a file that is (or is linked to) a download that may still be seeding.\n    const protectRoot = String(lib.protect_hardlinks_root || '/media/downloads').replace(/\\/+$/, '');\n    if (file === args.originalLibraryFile._id) {\n      if (file.startsWith(`${protectRoot}/`)) { log(`original is under ${protectRoot}, not editing in place`); return done(); }\n      const st = fs.statSync(file);\n      if (st.nlink > 1) {\n        const other = execFileSync('find', [protectRoot, '-xdev', '-inum', String(st.ino), '-print', '-quit'],\n          { encoding: 'utf8', timeout: 600000 }).trim();\n        if (other) { log(`hard-linked to ${other}, not editing in place`); return done(); }\n      }\n    }\n\n    const tracks = JSON.parse(execFileSync('mkvmerge', ['-J', file], { encoding: 'utf8', maxBuffer: 64 << 20 })).tracks || [];\n    const p = (t) => t.properties || {};\n    const lang = (t) => String(p(t).language_ietf || p(t).language || 'und').toLowerCase();\n    const isEng = (t) => /^(en|eng)(-|$)/.test(lang(t));\n    const isUnknown = (t) => ['und', 'zxx', 'mis', ''].includes(lang(t));\n    const name = (t) => String(p(t).track_name || '');\n    const isCommentary = (t) => p(t).flag_commentary || /comment/i.test(name(t));\n    const isDescriptive = (t) => p(t).flag_visual_impaired || /descri/i.test(name(t));\n    const isSdh = (t) => p(t).flag_hearing_impaired || /\\b(sdh|cc)\\b|hearing/i.test(name(t));\n    const audio = tracks.filter((t) => t.type === 'audio');\n    const subs = tracks.filter((t) => t.type === 'subtitles');\n    const want = new Map();\n\n    if (audio.length) {\n      const main = audio.filter((t) => !isCommentary(t) && !isDescriptive(t));\n      const eng = main.filter(isEng);\n      let pick;\n      if (eng.length) {\n        const best = Math.max(...eng.map((t) => p(t).audio_channels || 0));\n        const top = eng.filter((t) => (p(t).audio_channels || 0) === best);\n        pick = top.find((t) => p(t).default_track) || top[0];\n      } else {\n        pick = audio.find((t) => p(t).default_track) || main[0] || audio[0];\n      }\n      audio.forEach((t) => want.set(t, t === pick));\n\n      const foreign = !isEng(pick) && !isUnknown(pick);\n      let subPick = null;\n      if (foreign) {\n        const engSubs = subs.filter((t) => isEng(t) && !p(t).forced_track && !isCommentary(t));\n        subPick = engSubs.find((t) => !isSdh(t)) || engSubs[0] || null;\n      }\n      // Foreign audio with no English subtitle track: leave subtitle flags alone.\n      if (!foreign || subPick) subs.forEach((t) => want.set(t, t === subPick));\n      log(`audio -> ${lang(pick)} \"${name(pick)}\"${foreign ? `, foreign audio, subtitle -> ${subPick ? `${lang(subPick)} \"${name(subPick)}\"` : 'none (no English subtitle track)'}` : ', no default subtitle'}`);\n    }\n\n    const edits = [];\n    want.forEach((on, t) => {\n      if (Boolean(p(t).default_track) !== on) edits.push('--edit', `track:@${p(t).number}`, '--set', `flag-default=${on ? 1 : 0}`);\n    });\n    if (!edits.length) { log('already correct, no change'); return done(); }\n    execFileSync('mkvpropedit', [file, ...edits], { encoding: 'utf8', timeout: 600000 });\n    log(`updated ${edits.length / 4} track flag(s)`);\n  } catch (err) {\n    log(`skipped, ${err.message}`);\n  }\n  return done();\n};\n"
+      }
     }
   ],
   "flowEdges": [
@@ -1229,7 +1275,7 @@
     {
       "source": "NIYBbI18q",
       "sourceHandle": "1",
-      "target": "Xzzidp1G7",
+      "target": "rvwRplc01",
       "targetHandle": null,
       "id": "eCEuewG0n"
     },
@@ -1341,7 +1387,7 @@
     {
       "source": "p40UxkZmG",
       "sourceHandle": "2",
-      "target": "6VbHV-9sJ",
+      "target": "dfltTrkSv1",
       "targetHandle": null,
       "id": "qyZiX_9VF"
     },
@@ -1393,6 +1439,34 @@
       "target": "ko1ZB0KWL",
       "targetHandle": null,
       "id": "PQ6jAltJi"
+    },
+    {
+      "source": "rvwRplc01",
+      "sourceHandle": "1",
+      "target": "rvwKeep01",
+      "targetHandle": null,
+      "id": "rvwE0001"
+    },
+    {
+      "source": "rvwRplc01",
+      "sourceHandle": "2",
+      "target": "Xzzidp1G7",
+      "targetHandle": null,
+      "id": "rvwE0002"
+    },
+    {
+      "source": "rvwKeep01",
+      "sourceHandle": "1",
+      "target": "ko1ZB0KWL",
+      "targetHandle": null,
+      "id": "rvwE0003"
+    },
+    {
+      "source": "dfltTrkSv1",
+      "sourceHandle": "1",
+      "target": "6VbHV-9sJ",
+      "targetHandle": null,
+      "id": "dfltE0002"
     }
   ]
 }

@@ -14,6 +14,18 @@ module.exports = async (args) => {
   } catch (e) {
     sourceBitDepth = 8;
   }
+  // mediaInfo is empty when the library's MediaInfo scan is off; fall back to
+  // ffprobe so 10-bit (e.g. HDR10) sources aren't encoded as 8-bit.
+  if (sourceBitDepth === 8) {
+    const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];
+    const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));
+    if (v) {
+      const raw = parseInt(v.bits_per_raw_sample, 10);
+      const fromPix = /12(le|be)?$/.test(v.pix_fmt || '') ? 12 : /10(le|be)?$/.test(v.pix_fmt || '') ? 10 : 0;
+      const depth = raw || fromPix;
+      if ([10, 12].includes(depth)) sourceBitDepth = depth;
+    }
+  }
 
   // 2. Read v_max_bitdepth from library variables
   const rawMax = (args.userVariables && args.userVariables.library)

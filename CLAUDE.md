@@ -75,9 +75,16 @@ Flow 1 sets encoder-specific parameters. Supported encoders: `nvenc` (NVIDIA), `
 | `save_mode` | `replace` — replace the library file in place instead of moving to `output_dir_done` (for libraries pointed at an existing media library) |
 | `sonarr_url` | With `save_mode=replace`: Sonarr base URL, e.g. `http://sonarr.luc3nt-media.svc.cluster.local:8989` |
 | `sonarr_api_key` | With `save_mode=replace`: Sonarr API key used to rescan the series and rename the replaced file |
+| `low_bitrate_skip_ratio` | With `save_mode=replace`: skip encoding when the source video bitrate is below this fraction of the resolution's target (default `0.9`) |
+| `protect_hardlinks_root` | The default-track fix never edits an original in place if it lives under, or is hard-linked into, this directory (default `/media/downloads`, so seeding torrents are untouched) |
+
+## Default Tracks
+
+Both the Save flow (before saving) and the Input flow (files the replace-mode skip gate doesn't encode) set default track flags with `mkvpropedit`, header-only: the best English non-commentary audio becomes the default with no default subtitle (forced flags are kept); when the default audio is explicitly non-English, the English full (non-SDH) subtitle becomes the default. It has to run after the last ffmpeg step, because ffmpeg's mkv muxer marks forced subtitles as default on a plain `-c copy` remux.
 
 ## Known Limitations
 
-- Does **not** support Dolby Vision (DV) or HDR10+ content.
+- Dolby Vision video is never re-encoded: the Input skip gate sets `dv_skip_video` and the Video flow sends the file straight to Save with the video stream-copied (audio cleanup and default tracks still run).
+- Does **not** support re-encoding HDR10+ content.
 - 720p `.ts` files may produce unexpected bitrates.
 - Tdarr may cache old variable values after updates — clearing the library cache resolves this.
