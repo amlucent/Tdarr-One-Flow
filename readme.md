@@ -25,7 +25,7 @@ I have a library for low quality, high quality, Animation, Movies.  Each has the
 - Maximum output resolution (`v_max_resolution`), e.g. store 4K releases as 1080p: sources above it are downscaled, and the bitrate follows the target resolution's setting (see Maximum Resolution below)
 - Maximum output bit depth (`v_max_bitdepth`): sources at or below it keep their native depth (e.g. 10-bit HDR stays 10-bit)
 - Dolby Vision protection: DV sources (all profiles, including profile 5 with no HDR10 fallback) keep their video untouched
-- Default tracks: the best English audio track becomes the default with no default subtitle; for foreign-language audio the English subtitle becomes the default (see Default Tracks below)
+- Default tracks in your language (English unless `default_track_language` says otherwise): the best audio track in your language becomes the default with no default subtitle; for foreign-language audio, your language's subtitle becomes the default (see Default Tracks below)
 - Replace-in-place mode (`save_mode = replace`): point Tdarr at an existing library, not just new downloads, with a Sonarr rescan/rename after each file and a skip gate so already-efficient files aren't re-encoded (see Replace-in-place Mode below)
 
   
@@ -67,26 +67,40 @@ What replace mode does:
 - The encoded file replaces the original atomically: it is copied into a hidden `.tdarr-partial/` folder next to the original (Sonarr, Plex and Jellyfin ignore dot-folders), verified, then renamed over the original, so the episode never disappears mid-replace.
 - If the encode fails a review check (duration, size), it goes to `output_dir_review` and the original is **kept**.
 - With `sonarr_url` / `sonarr_api_key` set, Sonarr rescans the series and renames the new file.
-- A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1, or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
+- A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1 (unless it is larger than `v_max_resolution` and the library has `replace_downscale = true`, see Maximum Resolution), or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
 
 # Maximum Resolution, e.g. 4K down to 1080p (added in this fork)
 The practical use: you can keep grabbing 4K releases but store them as 1080p, the standard most of your players handle natively. Then Plex/Jellyfin don't have to transcode 4K on the fly for devices that can't play it, which is expensive on the server, and the files are much smaller.
 
-**How to use it:** add `v_max_resolution = 1080p` to the library's variables. Any source taller than 1080 lines is downscaled to 1080p (aspect ratio kept) and encoded at your `bitrate_1080p`, not the 4K bitrate. Sources at or below 1080p are not scaled. Valid values: `480p`, `576p`, `720p`, `1080p`, `1440p`, `4k`.
+**How to use it:** add `v_max_resolution = 1080p` to the library's variables. Any source bigger than a 1920x1080 frame (taller than 1080 lines, or wider than 1920) is scaled down to fit inside 1920x1080, aspect ratio kept, and encoded at your `bitrate_1080p`, not the 4K bitrate. A 3840x2160 source becomes 1920x1080; a 3840x1604 widescreen film becomes 1920x802 (never 2586x1080, which 1080p-only players would have to transcode). Sources that already fit are not scaled. Valid values: `480p`, `576p`, `720p`, `1080p`, `1440p`, `4k` (the box is that height and its 16:9 width).
 
 **How to turn it off:** remove `v_max_resolution` from the library (or leave it empty). Every file then keeps its source resolution, and 4K sources use `bitrate_4k` / `bitrate_4k_hdr`. An invalid value fails the job with an error rather than guessing.
 
+**Existing 4K files in replace mode (`replace_downscale`):** most 4K releases are already HEVC, and the replace-mode skip gate normally leaves HEVC/AV1 alone. To also downscale the 4K HEVC/AV1 files already sitting in a library, add `replace_downscale = true` to that library as well. It is opt-in per library on purpose: leave it off for a library whose 4K copies you want to keep (for example a movie library with 4K versions you treasure), and those files are never re-encoded even though `v_max_resolution` is set. Once a file has been downscaled it is 1080p HEVC, so the next scan skips it.
+
 Things to know:
-- HDR is kept when downscaling: 10-bit sources stay 10-bit (unless `v_max_bitdepth = 8`), and the 1080p bitrate tier is used.
-- Most 4K releases are already HEVC, and HEVC is only encoded (so only downscaled) with `do_hevc = true` in an input/output library. In replace mode the skip gate currently skips HEVC even when it is above `v_max_resolution`, so 4K HEVC files in an existing library stay 4K.
+- HDR is kept when downscaling: 10-bit sources stay 10-bit with their BT.2020/PQ colour and mastering-display / content-light metadata (unless `v_max_bitdepth = 8`), and the 1080p bitrate tier is used.
+- In an input/output library, already-HEVC 4K is only encoded (so only downscaled) with `do_hevc = true`.
 - Dolby Vision video is never re-encoded, so DV files keep their original resolution.
-- The job log shows what happened: `Resolution: source=2160p (4k), max=1080p, downscaling to 1080p`.
+- The job log shows what happened: `Resolution: source=3840x1604 (4k), max=1080p, downscaling to fit 1920x1080`.
 
 # Default Tracks
-Every file that goes through the flow gets its default flags fixed with `mkvpropedit` (header only, no remux, takes about a second):
-- The best English audio track (most channels, not commentary or descriptive) becomes the only default audio, and no subtitle is default. Forced flags are kept, so players still show forced subtitles when needed.
-- If the default audio is explicitly non-English (a foreign film), its audio stays the default and the English full subtitle (not SDH or forced) becomes the default.
+Every file that goes through the flow gets its default flags fixed with `mkvpropedit` (header only, no remux, takes about a second). The preferred language is set per library with `default_track_language`; English is used when it isn't set. Below, "your language" means that setting:
+- The best audio track in your language (most channels, not commentary or descriptive) becomes the only default audio, and no subtitle is default. Forced flags are kept, so players still show forced subtitles when needed.
+- If the file has no audio in your language and its default audio is in another language (a foreign film), that audio stays the default and the full subtitle in your language (not SDH or forced) becomes the default. If there is no subtitle in your language either, subtitle flags are left alone.
 - An original is never edited in place if it lives under, or is hard-linked into, `protect_hardlinks_root` (default `/media/downloads`), so seeding torrents are never modified.
+
+**How to choose the language:** add `default_track_language` to the library with ISO language codes, 2- or 3-letter, comma-separated. Either form works on its own (`es` also matches tracks tagged `spa`).
+
+| You want | Set |
+|----------|-----|
+| English (the default) | leave unset, or `eng,en` |
+| Spanish | `spa,es` |
+| French | `fre,fra,fr` |
+| German | `ger,deu,de` |
+| Turn the default-track fix off | `off` |
+
+Different libraries can use different languages, e.g. an English TV library and a Spanish one sharing the same flows.
 
 # Tweaks
 - All the configurable Flow Settings can be edited in flow 1 - Input
@@ -160,6 +174,10 @@ sonarr_url = http://sonarr:8989 # With save_mode = replace: Sonarr rescans the s
 sonarr_api_key = <key> # With save_mode = replace
 
 low_bitrate_skip_ratio = 0.9 # With save_mode = replace: skip encoding sources below this fraction of the target bitrate (default 0.9)
+
+replace_downscale = true # With save_mode = replace and v_max_resolution: also re-encode existing HEVC/AV1 files larger than v_max_resolution so they get downscaled. Leave unset to keep existing 4K files (default off)
+
+default_track_language = eng,en # Language for default audio/subtitles (ISO codes, comma-separated, default English). "off" disables the default-track fix
 
 protect_hardlinks_root = /media/downloads # Default tracks never edit an original in place under, or hard-linked into, this folder (default /media/downloads)
 
@@ -255,7 +273,8 @@ Fork changes (amlucent/Tdarr-One-Flow)
  - Resolution and bit depth fall back to ffprobe when MediaInfo data is empty (previously every file landed on the 480p bitrate tier and HDR was encoded as 8-bit)
  - Added replace-in-place mode (save_mode = replace) with atomic replace, Sonarr rescan/rename, and a skip gate for HEVC/AV1 and low-bitrate sources
  - Dolby Vision video is stream-copied instead of re-encoded; audio cleanup and default tracks still run
- - Default audio/subtitle tracks are set on every processed file (English audio default, English subs for foreign-language audio)
+ - Default audio/subtitle tracks are set on every processed file, in the library's `default_track_language` (English by default; `off` disables)
+ - `v_max_resolution` now fits sources inside the cap's 16:9 box (widescreen 4K becomes 1920x802, not 2586x1080), and `replace_downscale = true` lets replace mode downscale existing 4K HEVC/AV1 (opt-in per library)
  - The MKVPropEdit statistics refresh only runs on cache copies, never on source files; oversized encodes go to review
  - Fixed libx265 arguments, skip AV1 sources, encode mono Opus tracks at the 1-channel bitrate
 

@@ -77,10 +77,16 @@ Flow 1 sets encoder-specific parameters. Supported encoders: `nvenc` (NVIDIA), `
 | `sonarr_api_key` | With `save_mode=replace`: Sonarr API key used to rescan the series and rename the replaced file |
 | `low_bitrate_skip_ratio` | With `save_mode=replace`: skip encoding when the source video bitrate is below this fraction of the resolution's target (default `0.9`) |
 | `protect_hardlinks_root` | The default-track fix never edits an original in place if it lives under, or is hard-linked into, this directory (default `/media/downloads`, so seeding torrents are untouched) |
+| `replace_downscale` | `true` — with `save_mode=replace` and `v_max_resolution`, the skip gate encodes existing HEVC/AV1 sources larger than the cap (sets `oversize_encode`, which lets the Video flow past its `do_hevc` and AV1 skips). Off by default so libraries whose 4K copies should be kept are never downscaled |
+| `default_track_language` | Preferred language for the default-track fix: comma-separated ISO 639-1/639-2 codes (default `eng,en`; each code is expanded to its equivalents, e.g. `es` also matches `spa`). `off` disables the fix |
 
 ## Default Tracks
 
-Both the Save flow (before saving) and the Input flow (files the replace-mode skip gate doesn't encode) set default track flags with `mkvpropedit`, header-only: the best English non-commentary audio becomes the default with no default subtitle (forced flags are kept); when the default audio is explicitly non-English, the English full (non-SDH) subtitle becomes the default. It has to run after the last ffmpeg step, because ffmpeg's mkv muxer marks forced subtitles as default on a plain `-c copy` remux.
+Both the Save flow (before saving) and the Input flow (files the replace-mode skip gate doesn't encode) set default track flags with `mkvpropedit`, header-only: the best non-commentary audio in `default_track_language` becomes the default with no default subtitle (forced flags are kept); when the default audio is explicitly in another language, the full (non-SDH) subtitle in the preferred language becomes the default. It has to run after the last ffmpeg step, because ffmpeg's mkv muxer marks forced subtitles as default on a plain `-c copy` remux. Tracks are addressed by track number (`track:@N`): 64-bit track UIDs lose precision in JavaScript's `JSON.parse`.
+
+## Max Resolution
+
+`js_resolve_max_resolution.js` fits sources inside the cap's 16:9 box (`scale=W:H:force_original_aspect_ratio=decrease:force_divisible_by=2`), so a source is scaled when it is taller than the cap or wider than its 16:9 width (3840x1604 at a 1080p cap becomes 1920x802).
 
 ## Known Limitations
 

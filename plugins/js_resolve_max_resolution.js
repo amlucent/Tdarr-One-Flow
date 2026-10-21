@@ -11,6 +11,18 @@ module.exports = async (args) => {
     '4k': 2160,
   };
 
+  // Widest 16:9 frame for each cap. Sources are fitted inside cap width x cap
+  // height, so a 3840x1604 scope source capped at 1080p becomes 1920x802, not
+  // 2586x1080 (wider than 1080p players can direct play).
+  const widthMap = {
+    '480p': 854,
+    '576p': 1024,
+    '720p': 1280,
+    '1080p': 1920,
+    '1440p': 2560,
+    '4k': 3840,
+  };
+
   // Height to resolution label (for source detection)
   const heightToLabel = [
     { maxHeight: 480, label: '480p' },
@@ -40,6 +52,18 @@ module.exports = async (args) => {
     const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];
     const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));
     if (v && v.height) sourceHeight = parseInt(v.height, 10) || 0;
+  }
+  let sourceWidth = 0;
+  try {
+    const vs = ((args.inputFileObj.mediaInfo || {}).streams || []).find((s) => s.codecType === 'video');
+    sourceWidth = parseInt(vs && vs.Width, 10) || 0;
+  } catch (e) {
+    sourceWidth = 0;
+  }
+  if (!sourceWidth) {
+    const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];
+    const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));
+    if (v && v.width) sourceWidth = parseInt(v.width, 10) || 0;
   }
 
   // 2. Detect source resolution label
@@ -77,11 +101,11 @@ module.exports = async (args) => {
   let effectiveLabel = sourceLabel;
   let scaleHeight = null;
 
-  if (maxHeight !== null && sourceHeight > maxHeight) {
+  if (maxHeight !== null && (sourceHeight > maxHeight || sourceWidth > widthMap[maxLabel])) {
     needsScaling = true;
     effectiveLabel = maxLabel;
     scaleHeight = maxHeight;
-    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, downscaling to ${maxLabel}`);
+    args.jobLog(`Resolution: source=${sourceWidth}x${sourceHeight} (${sourceLabel}), max=${maxLabel}, downscaling to fit ${widthMap[maxLabel]}x${maxHeight}`);
   } else if (maxHeight !== null) {
     args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, no scaling needed (at or below cap)`);
   } else {
@@ -95,7 +119,7 @@ module.exports = async (args) => {
     filters.push('bwdif=1:0:1');
   }
   if (needsScaling) {
-    filters.push(`scale=-2:${scaleHeight}`);
+    filters.push(`scale=${widthMap[maxLabel]}:${scaleHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2`);
   }
 
   if (filters.length > 0) {

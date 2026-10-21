@@ -3627,7 +3627,7 @@
       "pluginName": "customFunction",
       "version": "1.0.0",
       "inputsDB": {
-        "code": "module.exports = async (args) => {\n  let variables = args.variables || {};\n\n  // Resolution label to height mapping\n  const resolutionMap = {\n    '480p': 480,\n    '576p': 576,\n    '720p': 720,\n    '1080p': 1080,\n    '1440p': 1440,\n    '4k': 2160,\n  };\n\n  // Height to resolution label (for source detection)\n  const heightToLabel = [\n    { maxHeight: 480, label: '480p' },\n    { maxHeight: 576, label: '576p' },\n    { maxHeight: 720, label: '720p' },\n    { maxHeight: 1080, label: '1080p' },\n    { maxHeight: 1440, label: '1440p' },\n    { maxHeight: Infinity, label: '4k' },\n  ];\n\n  // 1. Read source dimensions from mediaInfo\n  let sourceHeight = 0;\n  try {\n    const videoStream = (args.inputFileObj.mediaInfo || {}).streams\n      ? args.inputFileObj.mediaInfo.streams.find(s => s.codecType === 'video')\n      : null;\n    if (videoStream && videoStream.Height) {\n      sourceHeight = parseInt(videoStream.Height, 10);\n    }\n  } catch (e) {\n    sourceHeight = 0;\n  }\n  // mediaInfo is empty when the library's MediaInfo scan is off, which left every\n  // file at height 0 and (via the lookup below) on the 480p bitrate tier. Fall\n  // back to ffprobe, which Tdarr always has.\n  if (!sourceHeight) {\n    const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];\n    const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));\n    if (v && v.height) sourceHeight = parseInt(v.height, 10) || 0;\n  }\n\n  // 2. Detect source resolution label\n  if (sourceHeight === 0) {\n    args.jobLog('Warning: could not read source video height from mediaInfo, defaulting to 1080p');\n  }\n  let sourceLabel = '1080p'; // fallback\n  for (const entry of (sourceHeight ? heightToLabel : [])) {\n    if (sourceHeight <= entry.maxHeight) {\n      sourceLabel = entry.label;\n      break;\n    }\n  }\n\n  // 3. Read v_max_resolution from library variables\n  const rawMax = (args.userVariables && args.userVariables.library)\n    ? args.userVariables.library.v_max_resolution\n    : undefined;\n\n  let maxHeight = null;\n  let maxLabel = null;\n  if (rawMax !== undefined && rawMax !== null && String(rawMax).trim() !== '') {\n    const cleaned = String(rawMax).trim().toLowerCase();\n    if (!resolutionMap.hasOwnProperty(cleaned)) {\n      throw new Error(\n        `Invalid v_max_resolution value '${rawMax}'. Must be one of: 480p, 576p, 720p, 1080p, 1440p, 4k.`\n      );\n    }\n    maxHeight = resolutionMap[cleaned];\n    maxLabel = cleaned;\n  }\n\n  // 4. Determine if scaling is needed\n  let needsScaling = false;\n  let effectiveLabel = sourceLabel;\n  let scaleHeight = null;\n\n  if (maxHeight !== null && sourceHeight > maxHeight) {\n    needsScaling = true;\n    effectiveLabel = maxLabel;\n    scaleHeight = maxHeight;\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, downscaling to ${maxLabel}`);\n  } else if (maxHeight !== null) {\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, no scaling needed (at or below cap)`);\n  } else {\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), v_max_resolution unset, preserving source resolution`);\n  }\n\n  // 5. Build combined -vf video filter chain\n  const doDeinterlace = variables.user && variables.user.do_deinterlace === 'true';\n  const filters = [];\n  if (doDeinterlace) {\n    filters.push('bwdif=1:0:1');\n  }\n  if (needsScaling) {\n    filters.push(`scale=-2:${scaleHeight}`);\n  }\n\n  if (filters.length > 0) {\n    variables.fl_video_filters = `-vf ${filters.join(',')}`;\n  } else {\n    variables.fl_video_filters = '';\n  }\n\n  // 6. Handle 4K HDR bitrate routing\n  const isHdr = variables.is_hdr === 'true';\n  let bitrateLabel = effectiveLabel;\n\n  if (isHdr && sourceHeight >= 2160) {\n    if (maxHeight === null || maxHeight >= 2160) {\n      // 4K HDR source, no downscaling or max is 4k: use 4k_hdr bitrates\n      bitrateLabel = '4k_hdr';\n      args.jobLog(`HDR detected at 4K, using bitrate_4k_hdr`);\n    } else {\n      // Downscaling HDR below 4K: HDR distinction no longer relevant\n      args.jobLog(`HDR detected but downscaling to ${effectiveLabel}, using bitrate_${effectiveLabel}`);\n    }\n  }\n\n  // 7. Always set effective bitrate variables\n  // Read from flow variables (set by js_calculate_video_bitrate), not library variables\n  variables.bitrate_effective = variables[`bitrate_${bitrateLabel}`] || '';\n  variables.maxrate_effective = variables[`maxrate_${bitrateLabel}`] || '';\n  variables.bufsize_effective = variables[`bufsize_${bitrateLabel}`] || '';\n  variables.cutoff_effective = variables[`cutoff_${bitrateLabel}`] || '';\n\n  args.jobLog(`Effective bitrate tier: ${bitrateLabel} -> bitrate=${variables.bitrate_effective}, maxrate=${variables.maxrate_effective}`);\n\n  return {\n    outputFileObj: args.inputFileObj,\n    outputNumber: 1,\n    variables: variables,\n  };\n};\n\n"
+        "code": "module.exports = async (args) => {\n  let variables = args.variables || {};\n\n  // Resolution label to height mapping\n  const resolutionMap = {\n    '480p': 480,\n    '576p': 576,\n    '720p': 720,\n    '1080p': 1080,\n    '1440p': 1440,\n    '4k': 2160,\n  };\n\n  // Widest 16:9 frame for each cap. Sources are fitted inside cap width x cap\n  // height, so a 3840x1604 scope source capped at 1080p becomes 1920x802, not\n  // 2586x1080 (wider than 1080p players can direct play).\n  const widthMap = {\n    '480p': 854,\n    '576p': 1024,\n    '720p': 1280,\n    '1080p': 1920,\n    '1440p': 2560,\n    '4k': 3840,\n  };\n\n  // Height to resolution label (for source detection)\n  const heightToLabel = [\n    { maxHeight: 480, label: '480p' },\n    { maxHeight: 576, label: '576p' },\n    { maxHeight: 720, label: '720p' },\n    { maxHeight: 1080, label: '1080p' },\n    { maxHeight: 1440, label: '1440p' },\n    { maxHeight: Infinity, label: '4k' },\n  ];\n\n  // 1. Read source dimensions from mediaInfo\n  let sourceHeight = 0;\n  try {\n    const videoStream = (args.inputFileObj.mediaInfo || {}).streams\n      ? args.inputFileObj.mediaInfo.streams.find(s => s.codecType === 'video')\n      : null;\n    if (videoStream && videoStream.Height) {\n      sourceHeight = parseInt(videoStream.Height, 10);\n    }\n  } catch (e) {\n    sourceHeight = 0;\n  }\n  // mediaInfo is empty when the library's MediaInfo scan is off, which left every\n  // file at height 0 and (via the lookup below) on the 480p bitrate tier. Fall\n  // back to ffprobe, which Tdarr always has.\n  if (!sourceHeight) {\n    const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];\n    const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));\n    if (v && v.height) sourceHeight = parseInt(v.height, 10) || 0;\n  }\n  let sourceWidth = 0;\n  try {\n    const vs = ((args.inputFileObj.mediaInfo || {}).streams || []).find((s) => s.codecType === 'video');\n    sourceWidth = parseInt(vs && vs.Width, 10) || 0;\n  } catch (e) {\n    sourceWidth = 0;\n  }\n  if (!sourceWidth) {\n    const streams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];\n    const v = streams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));\n    if (v && v.width) sourceWidth = parseInt(v.width, 10) || 0;\n  }\n\n  // 2. Detect source resolution label\n  if (sourceHeight === 0) {\n    args.jobLog('Warning: could not read source video height from mediaInfo, defaulting to 1080p');\n  }\n  let sourceLabel = '1080p'; // fallback\n  for (const entry of (sourceHeight ? heightToLabel : [])) {\n    if (sourceHeight <= entry.maxHeight) {\n      sourceLabel = entry.label;\n      break;\n    }\n  }\n\n  // 3. Read v_max_resolution from library variables\n  const rawMax = (args.userVariables && args.userVariables.library)\n    ? args.userVariables.library.v_max_resolution\n    : undefined;\n\n  let maxHeight = null;\n  let maxLabel = null;\n  if (rawMax !== undefined && rawMax !== null && String(rawMax).trim() !== '') {\n    const cleaned = String(rawMax).trim().toLowerCase();\n    if (!resolutionMap.hasOwnProperty(cleaned)) {\n      throw new Error(\n        `Invalid v_max_resolution value '${rawMax}'. Must be one of: 480p, 576p, 720p, 1080p, 1440p, 4k.`\n      );\n    }\n    maxHeight = resolutionMap[cleaned];\n    maxLabel = cleaned;\n  }\n\n  // 4. Determine if scaling is needed\n  let needsScaling = false;\n  let effectiveLabel = sourceLabel;\n  let scaleHeight = null;\n\n  if (maxHeight !== null && (sourceHeight > maxHeight || sourceWidth > widthMap[maxLabel])) {\n    needsScaling = true;\n    effectiveLabel = maxLabel;\n    scaleHeight = maxHeight;\n    args.jobLog(`Resolution: source=${sourceWidth}x${sourceHeight} (${sourceLabel}), max=${maxLabel}, downscaling to fit ${widthMap[maxLabel]}x${maxHeight}`);\n  } else if (maxHeight !== null) {\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), max=${maxLabel}, no scaling needed (at or below cap)`);\n  } else {\n    args.jobLog(`Resolution: source=${sourceHeight}p (${sourceLabel}), v_max_resolution unset, preserving source resolution`);\n  }\n\n  // 5. Build combined -vf video filter chain\n  const doDeinterlace = variables.user && variables.user.do_deinterlace === 'true';\n  const filters = [];\n  if (doDeinterlace) {\n    filters.push('bwdif=1:0:1');\n  }\n  if (needsScaling) {\n    filters.push(`scale=${widthMap[maxLabel]}:${scaleHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2`);\n  }\n\n  if (filters.length > 0) {\n    variables.fl_video_filters = `-vf ${filters.join(',')}`;\n  } else {\n    variables.fl_video_filters = '';\n  }\n\n  // 6. Handle 4K HDR bitrate routing\n  const isHdr = variables.is_hdr === 'true';\n  let bitrateLabel = effectiveLabel;\n\n  if (isHdr && sourceHeight >= 2160) {\n    if (maxHeight === null || maxHeight >= 2160) {\n      // 4K HDR source, no downscaling or max is 4k: use 4k_hdr bitrates\n      bitrateLabel = '4k_hdr';\n      args.jobLog(`HDR detected at 4K, using bitrate_4k_hdr`);\n    } else {\n      // Downscaling HDR below 4K: HDR distinction no longer relevant\n      args.jobLog(`HDR detected but downscaling to ${effectiveLabel}, using bitrate_${effectiveLabel}`);\n    }\n  }\n\n  // 7. Always set effective bitrate variables\n  // Read from flow variables (set by js_calculate_video_bitrate), not library variables\n  variables.bitrate_effective = variables[`bitrate_${bitrateLabel}`] || '';\n  variables.maxrate_effective = variables[`maxrate_${bitrateLabel}`] || '';\n  variables.bufsize_effective = variables[`bufsize_${bitrateLabel}`] || '';\n  variables.cutoff_effective = variables[`cutoff_${bitrateLabel}`] || '';\n\n  args.jobLog(`Effective bitrate tier: ${bitrateLabel} -> bitrate=${variables.bitrate_effective}, maxrate=${variables.maxrate_effective}`);\n\n  return {\n    outputFileObj: args.inputFileObj,\n    outputNumber: 1,\n    variables: variables,\n  };\n};\n\n\n"
       },
       "id": "rMaxRes1",
       "position": {
@@ -3706,6 +3706,38 @@
         "flowId": "25kSD__gW",
         "pluginId": "KM3GG8qTW"
       }
+    },
+    {
+      "name": "Video - Check oversize_encode (replace_downscale) 🔍",
+      "sourceRepo": "Community",
+      "pluginName": "checkFlowVariable",
+      "version": "1.0.0",
+      "inputsDB": {
+        "variable": "{{{args.variables.user.oversize_encode}}}",
+        "value": "true"
+      },
+      "id": "ovrHevc01",
+      "position": {
+        "x": 1537.6190719398944,
+        "y": -3716.6065079840664
+      },
+      "fpEnabled": true
+    },
+    {
+      "name": "Video - Check oversize_encode (replace_downscale) 🔍",
+      "sourceRepo": "Community",
+      "pluginName": "checkFlowVariable",
+      "version": "1.0.0",
+      "inputsDB": {
+        "variable": "{{{args.variables.user.oversize_encode}}}",
+        "value": "true"
+      },
+      "id": "ovrAv101",
+      "position": {
+        "x": 1812.5814785441123,
+        "y": -3367.083429738266
+      },
+      "fpEnabled": true
     }
   ],
   "flowEdges": [
@@ -5217,7 +5249,7 @@
     {
       "source": "0uiH4oUBJ",
       "sourceHandle": "1",
-      "target": "Ptb_fuRE1",
+      "target": "ovrHevc01",
       "targetHandle": null,
       "id": "PTaXE4O5Y"
     },
@@ -6127,7 +6159,7 @@
     {
       "source": "Bz49bfdy2",
       "sourceHandle": "1",
-      "target": "YYD-hDxhI",
+      "target": "ovrAv101",
       "targetHandle": null,
       "id": "42vb5-hoi"
     },
@@ -6165,6 +6197,34 @@
       "target": "Aau4aHpE1",
       "targetHandle": null,
       "id": "dvSkE0003"
+    },
+    {
+      "source": "ovrHevc01",
+      "sourceHandle": "1",
+      "target": "rWuLs0j7E",
+      "targetHandle": null,
+      "id": "ovrE0001"
+    },
+    {
+      "source": "ovrHevc01",
+      "sourceHandle": "2",
+      "target": "Ptb_fuRE1",
+      "targetHandle": null,
+      "id": "ovrE0002"
+    },
+    {
+      "source": "ovrAv101",
+      "sourceHandle": "1",
+      "target": "1eZMD_YUy",
+      "targetHandle": null,
+      "id": "ovrE0003"
+    },
+    {
+      "source": "ovrAv101",
+      "sourceHandle": "2",
+      "target": "YYD-hDxhI",
+      "targetHandle": null,
+      "id": "ovrE0004"
     }
   ]
 }
