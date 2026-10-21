@@ -3708,7 +3708,7 @@
       }
     },
     {
-      "name": "Video - Check oversize_encode (replace_downscale) 🔍",
+      "name": "Video - Check oversize_encode (force_downscale) 🔍",
       "sourceRepo": "Community",
       "pluginName": "checkFlowVariable",
       "version": "1.0.0",
@@ -3724,7 +3724,7 @@
       "fpEnabled": true
     },
     {
-      "name": "Video - Check oversize_encode (replace_downscale) 🔍",
+      "name": "Video - Check oversize_encode (force_downscale) 🔍",
       "sourceRepo": "Community",
       "pluginName": "checkFlowVariable",
       "version": "1.0.0",

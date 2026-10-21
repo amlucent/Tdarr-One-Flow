@@ -71,13 +71,13 @@ Flow 1 sets encoder-specific parameters. Supported encoders: `nvenc` (NVIDIA), `
 | `do_hevc` | Also process already-HEVC files |
 | `encoder` | Override auto-detected encoder |
 | `v_max_bitdepth` | Maximum output bit depth (preserves source if unset) |
-| `v_max_resolution` | Maximum output resolution (preserves source if unset) |
+| `v_max_resolution` | Maximum output frame size, width and height (`1080p` = fit inside 1920x1080); preserves source if unset |
 | `save_mode` | `replace` — replace the library file in place instead of moving to `output_dir_done` (for libraries pointed at an existing media library) |
 | `sonarr_url` | With `save_mode=replace`: Sonarr base URL, e.g. `http://sonarr.luc3nt-media.svc.cluster.local:8989` |
 | `sonarr_api_key` | With `save_mode=replace`: Sonarr API key used to rescan the series and rename the replaced file |
 | `low_bitrate_skip_ratio` | With `save_mode=replace`: skip encoding when the source video bitrate is below this fraction of the resolution's target (default `0.9`) |
 | `protect_hardlinks_root` | The default-track fix never edits an original in place if it lives under, or is hard-linked into, this directory (default `/media/downloads`, so seeding torrents are untouched) |
-| `replace_downscale` | `true` — with `save_mode=replace` and `v_max_resolution`, the skip gate encodes existing HEVC/AV1 sources larger than the cap (sets `oversize_encode`, which lets the Video flow past its `do_hevc` and AV1 skips). Off by default so libraries whose 4K copies should be kept are never downscaled |
+| `force_downscale` | `true` — with `v_max_resolution` (any library), the Input skip gate encodes HEVC/AV1 sources larger than the cap (sets `oversize_encode`, which lets the Video flow past its `do_hevc` and AV1 skips). Off by default so libraries whose 4K copies should be kept are never downscaled |
 | `default_track_language` | Preferred language for the default-track fix: comma-separated ISO 639-1/639-2 codes (default `eng,en`; each code is expanded to its equivalents, e.g. `es` also matches `spa`). `off` disables the fix |
 
 ## Default Tracks

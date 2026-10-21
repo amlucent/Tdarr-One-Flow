@@ -67,20 +67,22 @@ What replace mode does:
 - The encoded file replaces the original atomically: it is copied into a hidden `.tdarr-partial/` folder next to the original (Sonarr, Plex and Jellyfin ignore dot-folders), verified, then renamed over the original, so the episode never disappears mid-replace.
 - If the encode fails a review check (duration, size), it goes to `output_dir_review` and the original is **kept**.
 - With `sonarr_url` / `sonarr_api_key` set, Sonarr rescans the series and renames the new file.
-- A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1 (unless it is larger than `v_max_resolution` and the library has `replace_downscale = true`, see Maximum Resolution), or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
+- A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1 (unless it is larger than `v_max_resolution` and the library has `force_downscale = true`, see Maximum Resolution), or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
 
 # Maximum Resolution, e.g. 4K down to 1080p (added in this fork)
 The practical use: you can keep grabbing 4K releases but store them as 1080p, the standard most of your players handle natively. Then Plex/Jellyfin don't have to transcode 4K on the fly for devices that can't play it, which is expensive on the server, and the files are much smaller.
+
+`v_max_resolution` is a frame size, width and height (the `v_` means video, as in `v_max_bitdepth` and `v_cq`): `1080p` means "fit inside a 1920x1080 frame".
 
 **How to use it:** add `v_max_resolution = 1080p` to the library's variables. Any source bigger than a 1920x1080 frame (taller than 1080 lines, or wider than 1920) is scaled down to fit inside 1920x1080, aspect ratio kept, and encoded at your `bitrate_1080p`, not the 4K bitrate. A 3840x2160 source becomes 1920x1080; a 3840x1604 widescreen film becomes 1920x802 (never 2586x1080, which 1080p-only players would have to transcode). Sources that already fit are not scaled. Valid values: `480p`, `576p`, `720p`, `1080p`, `1440p`, `4k` (the box is that height and its 16:9 width).
 
 **How to turn it off:** remove `v_max_resolution` from the library (or leave it empty). Every file then keeps its source resolution, and 4K sources use `bitrate_4k` / `bitrate_4k_hdr`. An invalid value fails the job with an error rather than guessing.
 
-**Existing 4K files in replace mode (`replace_downscale`):** most 4K releases are already HEVC, and the replace-mode skip gate normally leaves HEVC/AV1 alone. To also downscale the 4K HEVC/AV1 files already sitting in a library, add `replace_downscale = true` to that library as well. It is opt-in per library on purpose: leave it off for a library whose 4K copies you want to keep (for example a movie library with 4K versions you treasure), and those files are never re-encoded even though `v_max_resolution` is set. Once a file has been downscaled it is 1080p HEVC, so the next scan skips it.
+**4K that is already HEVC/AV1 (`force_downscale`):** most 4K releases are already HEVC, and the flow normally leaves HEVC/AV1 video alone (it is already efficient), so on its own `v_max_resolution` only downscales H.264 and older codecs. To downscale HEVC/AV1 sources too, add `force_downscale = true` to the library. It works in every library: input/output libraries (new downloads) and replace-mode libraries (files already in your library). Re-encoding is the only way to change the resolution, and going from 4K to 1080p hides most of the generation loss. It is opt-in per library on purpose: leave it off for a library whose 4K copies you want to keep (for example a movie library with 4K versions you treasure), and those files are never re-encoded even though `v_max_resolution` is set. Once a file has been downscaled it is 1080p HEVC, so the next scan skips it. Dolby Vision is never re-encoded, and HDR10+ keeps its HDR10 base but loses the dynamic HDR10+ layer.
 
 Things to know:
 - HDR is kept when downscaling: 10-bit sources stay 10-bit with their BT.2020/PQ colour and mastering-display / content-light metadata (unless `v_max_bitdepth = 8`), and the 1080p bitrate tier is used.
-- In an input/output library, already-HEVC 4K is only encoded (so only downscaled) with `do_hevc = true`.
+- `do_hevc = true` also re-encodes HEVC, but for every HEVC file, including ones already at or below the cap. `force_downscale` only touches files that are too big.
 - Dolby Vision video is never re-encoded, so DV files keep their original resolution.
 - The job log shows what happened: `Resolution: source=3840x1604 (4k), max=1080p, downscaling to fit 1920x1080`.
 
@@ -165,7 +167,7 @@ encoder = nvenc/qsv/amf/vaapi/cpu - Override Encoder Autodetect and manually set
 
 v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted.
 
-v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output resolution, e.g. 1080p to store 4K as 1080p. Sources above this are downscaled. Bitrate automatically uses the target resolution's settings. Remove or leave empty to keep source resolution.
+v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output frame size (width and height), e.g. 1080p to store 4K as 1080p. Sources that don't fit inside the frame are downscaled. Bitrate automatically uses the target resolution's settings. Remove or leave empty to keep source resolution.
 
 save_mode = replace # Replace the library file in place instead of moving it to output_dir_done (see Replace-in-place Mode)
 
@@ -175,7 +177,7 @@ sonarr_api_key = <key> # With save_mode = replace
 
 low_bitrate_skip_ratio = 0.9 # With save_mode = replace: skip encoding sources below this fraction of the target bitrate (default 0.9)
 
-replace_downscale = true # With save_mode = replace and v_max_resolution: also re-encode existing HEVC/AV1 files larger than v_max_resolution so they get downscaled. Leave unset to keep existing 4K files (default off)
+force_downscale = true # With v_max_resolution: also re-encode HEVC/AV1 files larger than v_max_resolution so they get downscaled (any library, including replace mode). Leave unset to keep 4K HEVC/AV1 files as they are (default off)
 
 default_track_language = eng,en # Language for default audio/subtitles (ISO codes, comma-separated, default English). "off" disables the default-track fix
 
@@ -274,7 +276,7 @@ Fork changes (amlucent/Tdarr-One-Flow)
  - Added replace-in-place mode (save_mode = replace) with atomic replace, Sonarr rescan/rename, and a skip gate for HEVC/AV1 and low-bitrate sources
  - Dolby Vision video is stream-copied instead of re-encoded; audio cleanup and default tracks still run
  - Default audio/subtitle tracks are set on every processed file, in the library's `default_track_language` (English by default; `off` disables)
- - `v_max_resolution` now fits sources inside the cap's 16:9 box (widescreen 4K becomes 1920x802, not 2586x1080), and `replace_downscale = true` lets replace mode downscale existing 4K HEVC/AV1 (opt-in per library)
+ - `v_max_resolution` now fits sources inside the cap's 16:9 box (widescreen 4K becomes 1920x802, not 2586x1080), and `force_downscale = true` downscales 4K HEVC/AV1 too, in any library (opt-in per library)
  - The MKVPropEdit statistics refresh only runs on cache copies, never on source files; oversized encodes go to review
  - Fixed libx265 arguments, skip AV1 sources, encode mono Opus tracks at the 1-channel bitrate
 
