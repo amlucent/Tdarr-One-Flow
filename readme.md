@@ -23,7 +23,7 @@ I have a library for low quality, high quality, Animation, Movies.  Each has the
 - Deinterlace .ts files. (tv DVR broadcasts)
 - Export Embedded Subtitles (Could use more testing and refinement)
 - Maximum output resolution (`v_max_resolution`), e.g. store 4K releases as 1080p: sources above it are downscaled, and the bitrate follows the target resolution's setting (see Maximum Resolution below)
-- Maximum output bit depth (`v_max_bitdepth`): sources at or below it keep their native depth (e.g. 10-bit HDR stays 10-bit)
+- Output bit depth: `v_max_bitdepth` caps it (sources at or below keep their native depth, e.g. 10-bit HDR stays 10-bit), `v_min_bitdepth` raises 8-bit sources (e.g. to 10-bit, for less banding) on files that are being encoded anyway, and `v_force_bitdepth` sets a fixed depth. HDR is never encoded below 10-bit
 - Dolby Vision protection: DV sources (all profiles, including profile 5 with no HDR10 fallback) keep their video untouched
 - Default tracks in your language (English unless `default_track_language` says otherwise): the best audio track in your language becomes the default with no default subtitle; for foreign-language audio, your language's subtitle becomes the default (see Default Tracks below)
 - Replace-in-place mode (`save_mode = replace`): point Tdarr at an existing library, not just new downloads, with a Sonarr rescan/rename after each file and a skip gate so already-efficient files aren't re-encoded (see Replace-in-place Mode below)
@@ -81,7 +81,7 @@ The practical use: you can keep grabbing 4K releases but store them as 1080p, th
 **4K that is already HEVC/AV1 (`force_downscale`):** most 4K releases are already HEVC, and the flow normally leaves HEVC/AV1 video alone (it is already efficient), so on its own `v_max_resolution` only downscales H.264 and older codecs. To downscale HEVC/AV1 sources too, add `force_downscale = true` to the library. It works in every library: input/output libraries (new downloads) and replace-mode libraries (files already in your library). Re-encoding is the only way to change the resolution, and going from 4K to 1080p hides most of the generation loss. It is opt-in per library on purpose: leave it off for a library whose 4K copies you want to keep (for example a movie library with 4K versions you treasure), and those files are never re-encoded even though `v_max_resolution` is set. Once a file has been downscaled it is 1080p HEVC, so the next scan skips it. Dolby Vision is never re-encoded, and HDR10+ keeps its HDR10 base but loses the dynamic HDR10+ layer.
 
 Things to know:
-- HDR is kept when downscaling: 10-bit sources stay 10-bit with their BT.2020/PQ colour and mastering-display / content-light metadata (unless `v_max_bitdepth = 8`), and the 1080p bitrate tier is used.
+- HDR is kept when downscaling: 10-bit sources stay 10-bit with their BT.2020/PQ colour and mastering-display / content-light metadata (HDR is never encoded below 10-bit), and the 1080p bitrate tier is used.
 - `do_hevc = true` also re-encodes HEVC, but for every HEVC file, including ones already at or below the cap. `force_downscale` only touches files that are too big.
 - Dolby Vision video is never re-encoded, so DV files keep their original resolution.
 - The job log shows what happened: `Resolution: source=3840x1604 (4k), max=1080p, downscaling to fit 1920x1080`.
@@ -166,6 +166,10 @@ do_hevc = true # process hevc?
 encoder = nvenc/qsv/amf/vaapi/cpu - Override Encoder Autodetect and manually set what encoder to use (currently only nvenc/qsv/cpu work)
 
 v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted.
+
+v_min_bitdepth = 8/10/12 # Minimum output bit depth for files that are encoded anyway (10 is recommended for HEVC: less banding, slightly smaller). Never triggers an encode by itself, so already-HEVC files the flow skips stay 8-bit. Untested with vaapi (raising depth there needs a format filter the flow does not add)
+
+v_force_bitdepth = 8/10/12 # Fixed output bit depth for encoded files; overrides v_min_bitdepth and v_max_bitdepth. Prefer v_min_bitdepth = 10. 12-bit is not recommended: almost no player hardware-decodes it, and NVENC/AMF fall back to 10
 
 v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output frame size (width and height), e.g. 1080p to store 4K as 1080p. Sources that don't fit inside the frame are downscaled. Bitrate automatically uses the target resolution's settings. Remove or leave empty to keep source resolution.
 
@@ -277,6 +281,8 @@ Fork changes (amlucent/Tdarr-One-Flow)
  - Dolby Vision video is stream-copied instead of re-encoded; audio cleanup and default tracks still run
  - Default audio/subtitle tracks are set on every processed file, in the library's `default_track_language` (English by default; `off` disables)
  - `v_max_resolution` now fits sources inside the cap's 16:9 box (widescreen 4K becomes 1920x802, not 2586x1080), and `force_downscale = true` downscales 4K HEVC/AV1 too, in any library (opt-in per library)
+ - Added v_min_bitdepth and v_force_bitdepth; HDR is never encoded below 10-bit; v_max_bitdepth = 8 now actually converts 10-bit sources
+ - Save flow: the move into output_dir_done is the final step and deletes the original itself, so a fast Sonarr import no longer fails the job and leaves the download behind
  - The MKVPropEdit statistics refresh only runs on cache copies, never on source files; oversized encodes go to review
  - Fixed libx265 arguments, skip AV1 sources, encode mono Opus tracks at the 1-channel bitrate
 

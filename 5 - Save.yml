@@ -213,18 +213,6 @@
       "fpEnabled": true
     },
     {
-      "name": "Save File - Can't Move File Fail! 🚨🚨",
-      "sourceRepo": "Community",
-      "pluginName": "failFlow",
-      "version": "1.0.0",
-      "id": "naryrAvWB",
-      "position": {
-        "x": 1812.6382900332817,
-        "y": 1678.1291952119445
-      },
-      "fpEnabled": true
-    },
-    {
       "name": "Save File - Check Variable - test_mode 🔍",
       "sourceRepo": "Community",
       "pluginName": "checkFlowVariable",
@@ -373,34 +361,6 @@
       "position": {
         "x": 889.1766563009943,
         "y": 2394.381203311006
-      },
-      "fpEnabled": true
-    },
-    {
-      "name": "Save File - Move Complete ✅",
-      "sourceRepo": "Community",
-      "pluginName": "comment",
-      "version": "1.0.0",
-      "id": "cr8L1hv6W",
-      "position": {
-        "x": 1302.6241779620027,
-        "y": 1863.0639047595314
-      },
-      "fpEnabled": true
-    },
-    {
-      "name": "File Save - Move To Directory Done ⏳",
-      "sourceRepo": "Community",
-      "pluginName": "moveToDirectory",
-      "version": "2.0.0",
-      "inputsDB": {
-        "keepRelativePath": "true",
-        "outputDirectory": "{{{args.userVariables.library.output_dir_done}}}"
-      },
-      "id": "nSj2dyRzi",
-      "position": {
-        "x": 1830,
-        "y": 1625
       },
       "fpEnabled": true
     },
@@ -905,6 +865,21 @@
       "inputsDB": {
         "code": "module.exports = async (args) => {\n  // Fix default audio/subtitle flags with mkvpropedit (header-only, no remux).\n  // The preferred language comes from the library variable default_track_language\n  // (comma-separated ISO 639-2 / 639-1 codes, default \"eng,en\"; \"off\" disables).\n  // - Audio: best preferred-language track (non-commentary, most channels) becomes\n  //   the only default. None in that language: keep the current default.\n  // - Subtitles: preferred-language default audio -> no default subtitles (forced\n  //   flags are kept, so players still show forced subs). Default audio explicitly\n  //   in another language -> preferred-language full subtitle (not SDH/forced).\n  // Must run after the last ffmpeg step: ffmpeg's mkv muxer re-marks forced\n  // subtitles as default on a plain -c copy remux (verified 2026-10-21).\n  // Never fails the flow; any problem is logged and the file left as-is.\n  const { execFileSync } = require('child_process');\n  const fs = require('fs');\n  const lib = (args.userVariables && args.userVariables.library) || {};\n  const file = args.inputFileObj._id;\n  const done = () => ({ outputFileObj: args.inputFileObj, outputNumber: 1, variables: args.variables });\n  const log = (m) => args.jobLog(`Default tracks: ${m}`);\n\n  const prefs = String(lib.default_track_language || 'eng,en').toLowerCase().split(',').map((c) => c.trim()).filter(Boolean);\n  if (prefs.includes('off')) { log('default_track_language=off, skipping'); return done(); }\n  // Older mkvs only carry the ISO 639-2 code, so expand each preference to its\n  // equivalents: \"es\" also matches \"spa\", \"de\" matches \"ger\"/\"deu\", and so on.\n  const iso = [['en', 'eng'], ['es', 'spa'], ['fr', 'fre', 'fra'], ['de', 'ger', 'deu'], ['it', 'ita'], ['pt', 'por'],\n    ['nl', 'dut', 'nld'], ['sv', 'swe'], ['no', 'nor', 'nob', 'nno'], ['da', 'dan'], ['fi', 'fin'], ['pl', 'pol'],\n    ['cs', 'cze', 'ces'], ['ru', 'rus'], ['uk', 'ukr'], ['el', 'gre', 'ell'], ['tr', 'tur'], ['ar', 'ara'],\n    ['he', 'heb'], ['hi', 'hin'], ['ja', 'jpn'], ['ko', 'kor'], ['zh', 'chi', 'zho'], ['th', 'tha'], ['vi', 'vie'],\n    ['id', 'ind'], ['hu', 'hun'], ['ro', 'rum', 'ron'], ['fa', 'per', 'fas']];\n  iso.forEach((group) => { if (group.some((c) => prefs.includes(c))) group.forEach((c) => { if (!prefs.includes(c)) prefs.push(c); }); });\n\n  try {\n    if (!/\\.mkv$/i.test(file)) { log('not an mkv, skipping'); return done(); }\n\n    // Editing the original in place also edits every hard link to it. Never touch\n    // a file that is (or is linked to) a download that may still be seeding.\n    const protectRoot = String(lib.protect_hardlinks_root || '/media/downloads').replace(/\\/+$/, '');\n    if (file === args.originalLibraryFile._id) {\n      if (file.startsWith(`${protectRoot}/`)) { log(`original is under ${protectRoot}, not editing in place`); return done(); }\n      const st = fs.statSync(file);\n      if (st.nlink > 1) {\n        const other = execFileSync('find', [protectRoot, '-xdev', '-inum', String(st.ino), '-print', '-quit'],\n          { encoding: 'utf8', timeout: 600000 }).trim();\n        if (other) { log(`hard-linked to ${other}, not editing in place`); return done(); }\n      }\n    }\n\n    const tracks = JSON.parse(execFileSync('mkvmerge', ['-J', file], { encoding: 'utf8', maxBuffer: 64 << 20 })).tracks || [];\n    const p = (t) => t.properties || {};\n    const lang = (t) => String(p(t).language_ietf || p(t).language || 'und').toLowerCase();\n    // Match on the ISO 639-2 code (\"spa\") or the IETF tag's language (\"es\" in \"es-MX\").\n    const isPref = (t) => [String(p(t).language || ''), String(p(t).language_ietf || '').split('-')[0]]\n      .some((c) => c && prefs.includes(c.toLowerCase()));\n    const isUnknown = (t) => ['und', 'zxx', 'mis', ''].includes(lang(t));\n    const name = (t) => String(p(t).track_name || '');\n    const isCommentary = (t) => p(t).flag_commentary || /comment/i.test(name(t));\n    const isDescriptive = (t) => p(t).flag_visual_impaired || /descri/i.test(name(t));\n    const isSdh = (t) => p(t).flag_hearing_impaired || /\\b(sdh|cc)\\b|hearing/i.test(name(t));\n    const audio = tracks.filter((t) => t.type === 'audio');\n    const subs = tracks.filter((t) => t.type === 'subtitles');\n    const want = new Map();\n\n    if (audio.length) {\n      const main = audio.filter((t) => !isCommentary(t) && !isDescriptive(t));\n      const pref = main.filter(isPref);\n      let pick;\n      if (pref.length) {\n        const best = Math.max(...pref.map((t) => p(t).audio_channels || 0));\n        const top = pref.filter((t) => (p(t).audio_channels || 0) === best);\n        pick = top.find((t) => p(t).default_track) || top[0];\n      } else {\n        pick = audio.find((t) => p(t).default_track) || main[0] || audio[0];\n      }\n      audio.forEach((t) => want.set(t, t === pick));\n\n      const foreign = !isPref(pick) && !isUnknown(pick);\n      let subPick = null;\n      if (foreign) {\n        const prefSubs = subs.filter((t) => isPref(t) && !p(t).forced_track && !isCommentary(t));\n        subPick = prefSubs.find((t) => !isSdh(t)) || prefSubs[0] || null;\n      }\n      // Foreign audio with no preferred-language subtitle track: leave subtitle flags alone.\n      if (!foreign || subPick) subs.forEach((t) => want.set(t, t === subPick));\n      log(`audio -> ${lang(pick)} \"${name(pick)}\"${foreign ? `, foreign audio, subtitle -> ${subPick ? `${lang(subPick)} \"${name(subPick)}\"` : `none (no ${prefs[0]} subtitle track)`}` : ', no default subtitle'}`);\n    }\n\n    const edits = [];\n    want.forEach((on, t) => {\n      if (Boolean(p(t).default_track) !== on) edits.push('--edit', `track:@${p(t).number}`, '--set', `flag-default=${on ? 1 : 0}`);\n    });\n    if (!edits.length) { log('already correct, no change'); return done(); }\n    execFileSync('mkvpropedit', [file, ...edits], { encoding: 'utf8', timeout: 600000 });\n    log(`updated ${edits.length / 4} track flag(s)`);\n  } catch (err) {\n    log(`skipped, ${err.message}`);\n  }\n  return done();\n};\n"
       }
+    },
+    {
+      "name": "Save File - Move To Done & Delete Original (final step) ⏳",
+      "sourceRepo": "Community",
+      "pluginName": "customFunction",
+      "version": "1.0.0",
+      "id": "fnlMove01",
+      "position": {
+        "x": 1830,
+        "y": 1625
+      },
+      "fpEnabled": true,
+      "inputsDB": {
+        "code": "module.exports = async (args) => {\n  // Final step for input/output libraries: move the encode into output_dir_done\n  // and clean up the original, all in one node. It must be the last plugin: Sonarr\n  // imports from output_dir_done within seconds, and any later plugin makes Tdarr\n  // rescan the moved file, fail with \"not found\", and skip the original's\n  // deletion (2026-10-21: 100 failed jobs, ~1 TB of originals left behind).\n  // The encode is copied into a hidden .tdarr-partial/ folder (Sonarr skips\n  // dot-folders), verified, then renamed into place in one step, so Sonarr never\n  // sees a partial file. The original is deleted afterwards unless test_mode=true.\n  let fsp;\n  try { fsp = require('fs').promises; } catch (e) { fsp = args.deps.fsextra.promises || args.deps.fsextra; }\n  const path = (() => { try { return require('path'); } catch (e) { return args.deps.path; } })();\n  const lib = (args.userVariables && args.userVariables.library) || {};\n\n  const working = args.inputFileObj._id;\n  const original = args.originalLibraryFile._id;\n  const libRoot = String((args.librarySettings && args.librarySettings.folder) || '').replace(/\\/+$/, '');\n  const doneRoot = String(lib.output_dir_done || '').replace(/\\/+$/, '');\n  if (!doneRoot) throw new Error('output_dir_done is not set');\n\n  // Same layout as Move To Directory with keepRelativePath: the original's\n  // folder relative to the library root.\n  const rel = libRoot && path.dirname(original).startsWith(`${libRoot}/`)\n    ? path.relative(libRoot, path.dirname(original)) : '';\n  const destDir = path.join(doneRoot, rel);\n  const dest = path.join(destDir, path.basename(working));\n\n  if (String((args.variables.user || {}).low_bitrate_skip) === 'true') {\n    args.jobLog('Video was not encoded: source bitrate too close to the target');\n  }\n\n  const src = await fsp.stat(working);\n  await fsp.mkdir(destDir, { recursive: true });\n  if (working === original) {\n    // Nothing was re-encoded: the original itself is the result.\n    try {\n      await fsp.rename(original, dest);\n    } catch (err) {\n      if (err.code !== 'EXDEV') throw err;\n      await fsp.copyFile(original, dest);\n      await fsp.unlink(original);\n    }\n    args.jobLog(`Moved unchanged original to ${dest}`);\n    return { outputFileObj: { _id: dest }, outputNumber: 1, variables: args.variables };\n  }\n\n  const tmpDir = path.join(doneRoot, '.tdarr-partial');\n  const tmp = path.join(tmpDir, `${path.basename(working)}.${Date.now()}.partial~`);\n  try {\n    await fsp.mkdir(tmpDir, { recursive: true });\n    await fsp.copyFile(working, tmp);\n    const fh = await fsp.open(tmp, 'r+');\n    await fh.sync();\n    await fh.close();\n    const size = (await fsp.stat(tmp)).size;\n    if (size !== src.size) throw new Error(`copy size mismatch: ${size} != ${src.size}`);\n    await fsp.utimes(tmp, src.atime, src.mtime);\n    await fsp.rename(tmp, dest);\n  } catch (err) {\n    await fsp.unlink(tmp).catch(() => {});\n    throw new Error(`Move to ${dest} failed, original left untouched: ${err.message}`);\n  }\n  // Another job may still be using it; only removed once empty.\n  await fsp.rmdir(tmpDir).catch(() => {});\n  await fsp.unlink(working).catch(() => {});\n  args.jobLog(`Saved to ${dest} (${src.size} bytes)`);\n\n  if (String(lib.test_mode) === 'true') {\n    args.jobLog('test_mode=true: original kept');\n  } else {\n    try {\n      await fsp.unlink(original);\n      args.jobLog(`Deleted original ${original}`);\n      const parent = path.dirname(original);\n      if (parent !== libRoot) {\n        await fsp.rmdir(parent).then(() => args.jobLog(`Removed empty folder ${parent}`)).catch(() => {});\n      }\n    } catch (err) {\n      args.jobLog(`Warning: could not delete original ${original}: ${err.message}`);\n    }\n  }\n  return { outputFileObj: { _id: dest }, outputNumber: 1, variables: args.variables };\n};\n"
+      }
     }
   ],
   "flowEdges": [
@@ -1091,13 +1066,6 @@
       "id": "C62n0nIzk"
     },
     {
-      "source": "nSj2dyRzi",
-      "sourceHandle": "err1",
-      "target": "naryrAvWB",
-      "targetHandle": null,
-      "id": "-HNFs7W_2"
-    },
-    {
       "source": "u5QtDQOjl",
       "sourceHandle": "2",
       "target": "ff-SxMjZl",
@@ -1110,13 +1078,6 @@
       "target": "PHgETIBKh",
       "targetHandle": null,
       "id": "AGn_5TBYy"
-    },
-    {
-      "source": "cr8L1hv6W",
-      "sourceHandle": "1",
-      "target": "Xzzidp1G7",
-      "targetHandle": null,
-      "id": "3ueoBc4kA"
     },
     {
       "source": "FrHoTizWG",
@@ -1250,13 +1211,6 @@
       "target": "VfgJdUHHI",
       "targetHandle": null,
       "id": "Czm9J4yM1"
-    },
-    {
-      "source": "nSj2dyRzi",
-      "sourceHandle": "1",
-      "target": "cr8L1hv6W",
-      "targetHandle": null,
-      "id": "-65tFWDnE"
     },
     {
       "source": "ZOw6a-NGX",
@@ -1401,7 +1355,7 @@
     {
       "source": "6VbHV-9sJ",
       "sourceHandle": "2",
-      "target": "nSj2dyRzi",
+      "target": "fnlMove01",
       "targetHandle": null,
       "id": "Eth2oZe8_"
     },

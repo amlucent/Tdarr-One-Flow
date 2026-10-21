@@ -27,32 +27,56 @@ module.exports = async (args) => {
     }
   }
 
-  // 2. Read v_max_bitdepth from library variables
-  const rawMax = (args.userVariables && args.userVariables.library)
-    ? args.userVariables.library.v_max_bitdepth
-    : undefined;
-
-  let maxBitDepth = null;
-  if (rawMax !== undefined && rawMax !== null && String(rawMax).trim() !== '') {
-    maxBitDepth = parseInt(String(rawMax).trim(), 10);
-    if (![8, 10, 12].includes(maxBitDepth)) {
-      throw new Error(
-        `Invalid v_max_bitdepth value '${rawMax}'. Must be 8, 10, or 12.`
-      );
+  // 2. Read v_max_bitdepth, v_min_bitdepth and v_force_bitdepth from library variables
+  const lib = (args.userVariables && args.userVariables.library) || {};
+  const readDepth = (name) => {
+    const raw = lib[name];
+    if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+    const depth = parseInt(String(raw).trim(), 10);
+    if (![8, 10, 12].includes(depth)) {
+      throw new Error(`Invalid ${name} value '${raw}'. Must be 8, 10, or 12.`);
     }
+    return depth;
+  };
+  const maxBitDepth = readDepth('v_max_bitdepth');
+  const minBitDepth = readDepth('v_min_bitdepth');
+  const forceBitDepth = readDepth('v_force_bitdepth');
+  if (minBitDepth !== null && maxBitDepth !== null && minBitDepth > maxBitDepth) {
+    throw new Error(`v_min_bitdepth (${minBitDepth}) is greater than v_max_bitdepth (${maxBitDepth}).`);
   }
 
-  // 3. Resolve effective bit depth
+  // HDR (PQ / HLG) needs at least 10 bits: 8-bit HDR bands badly and players may
+  // mis-render it, so no setting may take an HDR source below 10.
+  const probeStreams = (args.inputFileObj.ffProbeData && args.inputFileObj.ffProbeData.streams) || [];
+  const probeVideo = probeStreams.find((s) => s.codec_type === 'video' && !(s.disposition && s.disposition.attached_pic));
+  const isHdr = variables.is_hdr === 'true'
+    || ['smpte2084', 'arib-std-b67'].includes(String((probeVideo && probeVideo.color_transfer) || ''));
+
+  // 3. Resolve effective bit depth. This only shapes the encoder arguments, so it
+  // never causes an encode by itself: files the flow skips or stream-copies keep
+  // their video untouched. Precedence: v_force_bitdepth, then v_min_bitdepth
+  // (raise), then v_max_bitdepth (cap).
   let effectiveDepth;
-  if (maxBitDepth === null) {
-    effectiveDepth = sourceBitDepth;
-    args.jobLog(`Bit depth: source=${sourceBitDepth}, v_max_bitdepth unset, preserving source depth`);
-  } else if (sourceBitDepth <= maxBitDepth) {
-    effectiveDepth = sourceBitDepth;
-    args.jobLog(`Bit depth: source=${sourceBitDepth}, max=${maxBitDepth}, preserving source (at or below cap)`);
+  if (forceBitDepth !== null) {
+    effectiveDepth = forceBitDepth;
+    args.jobLog(`Bit depth: source=${sourceBitDepth}, v_force_bitdepth=${forceBitDepth}, encoding at ${forceBitDepth}`);
   } else {
-    effectiveDepth = maxBitDepth;
-    args.jobLog(`Bit depth: source=${sourceBitDepth}, max=${maxBitDepth}, capping to ${maxBitDepth}`);
+    effectiveDepth = sourceBitDepth;
+    if (minBitDepth !== null && effectiveDepth < minBitDepth) {
+      effectiveDepth = minBitDepth;
+      args.jobLog(`Bit depth: source=${sourceBitDepth}, min=${minBitDepth}, raising to ${minBitDepth}`);
+    }
+    if (maxBitDepth !== null && effectiveDepth > maxBitDepth) {
+      effectiveDepth = maxBitDepth;
+      args.jobLog(`Bit depth: source=${sourceBitDepth}, max=${maxBitDepth}, capping to ${maxBitDepth}`);
+    }
+    if (effectiveDepth === sourceBitDepth) {
+      args.jobLog(`Bit depth: source=${sourceBitDepth}, min=${minBitDepth === null ? 'unset' : minBitDepth}, max=${maxBitDepth === null ? 'unset' : maxBitDepth}, preserving source depth`);
+    }
+  }
+  if (isHdr && effectiveDepth < 10) {
+    effectiveDepth = Math.max(10, Math.min(sourceBitDepth, 12));
+    args.jobLog(`Bit depth: HDR source, never encoded below 10-bit, using ${effectiveDepth}`);
   }
 
   // 4. Pixel format and profile mappings per encoder
@@ -79,8 +103,10 @@ module.exports = async (args) => {
   }
 
   // 6. Compose per-encoder argument strings
-  // For 8-bit (the current implicit default), set to empty for backward compatibility
-  if (lookupDepth === 8) {
+  // 8-bit source staying 8-bit: empty, the encoders' default. An 8-bit target
+  // from a deeper source needs the explicit arguments, or the encoder keeps the
+  // source's 10-bit pixel format and the cap does nothing.
+  if (lookupDepth === 8 && sourceBitDepth <= 8) {
     variables.fl_bitdepth_args_cpu = '';
     variables.fl_bitdepth_args_nvenc = '';
     variables.fl_bitdepth_args_qsv = '';

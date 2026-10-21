@@ -33,7 +33,7 @@ Custom logic used within the flows:
 - `js_calculate_audio_bitrate_cutoff.js` — Same as above but for minimum-bitrate thresholds
 - `js_extract_video_bitrate.js` — Reads source video bitrate for encoding decisions
 - `js_extract_audio_is_lossless.js` — Detects 40+ lossless codec types (FLAC, PCM variants, ALAC, DCA, etc.)
-- `js_resolve_bitdepth.js` — Detects source bit depth, resolves against `v_max_bitdepth`, sets per-encoder `-pix_fmt` and `-profile:v` arguments
+- `js_resolve_bitdepth.js` — Detects source bit depth, resolves against `v_force_bitdepth` / `v_min_bitdepth` / `v_max_bitdepth` (HDR never below 10-bit), sets per-encoder `-pix_fmt` and `-profile:v` arguments
 - `js_resolve_max_resolution.js` — Detects source resolution, resolves against `v_max_resolution`, builds combined `-vf` filter chain (scale + deinterlace), sets effective bitrate variables
 
 ### Encoder Support
@@ -71,6 +71,8 @@ Flow 1 sets encoder-specific parameters. Supported encoders: `nvenc` (NVIDIA), `
 | `do_hevc` | Also process already-HEVC files |
 | `encoder` | Override auto-detected encoder |
 | `v_max_bitdepth` | Maximum output bit depth (preserves source if unset) |
+| `v_min_bitdepth` | Minimum output bit depth for files the flow encodes anyway, e.g. `10` raises 8-bit sources to 10-bit; never causes an encode on its own (skipped/copied video is untouched) |
+| `v_force_bitdepth` | Fixed output bit depth for encoded files, overrides min/max. HDR sources are never encoded below 10-bit |
 | `v_max_resolution` | Maximum output frame size, width and height (`1080p` = fit inside 1920x1080); preserves source if unset |
 | `save_mode` | `replace` — replace the library file in place instead of moving to `output_dir_done` (for libraries pointed at an existing media library) |
 | `sonarr_url` | With `save_mode=replace`: Sonarr base URL, e.g. `http://sonarr.luc3nt-media.svc.cluster.local:8989` |
