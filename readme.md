@@ -6,9 +6,9 @@ I accomplish this by using Library Variables.  This allows us to change our qual
 I have a library for low quality, high quality, Animation, Movies.  Each has their own quality settings.  Then I just move the files I'm processing into the corresponding library folder and tdarr will process as needed.
 
 - While I have ran thousands of files through this flow, please consider this beta! Do not trust it with your media library until you have ran a bunch of various files through it and understand how it operates!  Let me know if you run into unexpected behavior!
-- Do not use with DV or HDR+.  Could cause playback error.  Works fine with basic HDR (Fix for DV is on the roadmap, need help implementing it)
-- CPU & QSV work but need more testing, as I don't use them often.  NVENC is well tested.
-- This Flow is designed to be used with an input and output directory.  Futurue versions will have a library option.
+- Dolby Vision is safe: DV video is never re-encoded, only stream-copied (audio cleanup and default tracks still run). HDR10+ video is not re-encoded either (HEVC is skipped unless `do_hevc = true`). Works fine with basic HDR.
+- NVENC is well tested.  QSV (Intel Arc / iGPU) is tested on thousands of files in this fork.  CPU works but needs more testing.
+- Works with an input and output directory, or in place on an existing media library with `save_mode = replace` (see below).
 - Uses the -vbr method to obtain a predictable bitrate.  With cq as a fallback method, or when we decide the bitrate is too low for -vbr to work well.
 
 # Features
@@ -22,6 +22,11 @@ I have a library for low quality, high quality, Animation, Movies.  Each has the
 - If a lossless audio track exists, encode in opus (can disable, still needs refinement, as sometimes encodes high bitrate non-lossless tracks)
 - Deinterlace .ts files. (tv DVR broadcasts)
 - Export Embedded Subtitles (Could use more testing and refinement)
+- Maximum output resolution (`v_max_resolution`): sources above it are downscaled, and the bitrate follows the target resolution's setting
+- Maximum output bit depth (`v_max_bitdepth`): sources at or below it keep their native depth (e.g. 10-bit HDR stays 10-bit)
+- Dolby Vision protection: DV sources (all profiles, including profile 5 with no HDR10 fallback) keep their video untouched
+- Default tracks: the best English audio track becomes the default with no default subtitle; for foreign-language audio the English subtitle becomes the default (see Default Tracks below)
+- Replace-in-place mode (`save_mode = replace`) for running against an existing library, with a Sonarr rescan/rename after each file and a skip gate so already-efficient files aren't re-encoded
 
   
 
@@ -50,8 +55,21 @@ I broke it down into 5 steps/flows:
 4. Profit
 
 # Known Limitations
-  - Doesn't work for DV HDR content.
+  - Dolby Vision video is copied, never re-encoded, so those files only shrink as much as audio cleanup allows.  HDR10+ is skipped as HEVC by default; with `do_hevc = true` it would be re-encoded and lose its HDR10+ metadata.
   - .ts files in 720p often end up with an unexpected bitrate.  Have not been able to figure out why yet.
+
+# Replace-in-place Mode
+Set `save_mode = replace` on a library pointed at an existing media library (instead of a download/input folder):
+- The encoded file replaces the original atomically: it is copied into a hidden `.tdarr-partial/` folder next to the original (Sonarr, Plex and Jellyfin ignore dot-folders), verified, then renamed over the original, so the episode never disappears mid-replace.
+- If the encode fails a review check (duration, size), it goes to `output_dir_review` and the original is **kept**.
+- With `sonarr_url` / `sonarr_api_key` set, Sonarr rescans the series and renames the new file.
+- A skip gate leaves files alone (default tracks only) when the video is already HEVC/AV1, or the source bitrate is below `low_bitrate_skip_ratio` (default 0.9) of the target for its resolution.
+
+# Default Tracks
+Every file that goes through the flow gets its default flags fixed with `mkvpropedit` (header only, no remux, takes about a second):
+- The best English audio track (most channels, not commentary or descriptive) becomes the only default audio, and no subtitle is default. Forced flags are kept, so players still show forced subtitles when needed.
+- If the default audio is explicitly non-English (a foreign film), its audio stays the default and the English full subtitle (not SDH or forced) becomes the default.
+- An original is never edited in place if it lives under, or is hard-linked into, `protect_hardlinks_root` (default `/media/downloads`), so seeding torrents are never modified.
 
 # Tweaks
 - All the configurable Flow Settings can be edited in flow 1 - Input
@@ -117,6 +135,16 @@ encoder = nvenc/qsv/amf/vaapi/cpu - Override Encoder Autodetect and manually set
 v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted.
 
 v_max_resolution = 480p/576p/720p/1080p/1440p/4k # Maximum output resolution. Sources above this are downscaled. Bitrate automatically uses the target resolution's settings.
+
+save_mode = replace # Replace the library file in place instead of moving it to output_dir_done (see Replace-in-place Mode)
+
+sonarr_url = http://sonarr:8989 # With save_mode = replace: Sonarr rescans the series and renames the replaced file
+
+sonarr_api_key = <key> # With save_mode = replace
+
+low_bitrate_skip_ratio = 0.9 # With save_mode = replace: skip encoding sources below this fraction of the target bitrate (default 0.9)
+
+protect_hardlinks_root = /media/downloads # Default tracks never edit an original in place under, or hard-linked into, this folder (default /media/downloads)
 
 ```
 
@@ -187,7 +215,11 @@ But keep in mind, it may not be worth it to encode such videos.  One-Flow probab
 
 Q:  Why are my hevc vides not encoding?
 
-A:  By default we skip hevc, to force hevc encoding add the custom library variable: do_hevc = true
+A:  By default we skip hevc, to force hevc encoding add the custom library variable: do_hevc = true.  In replace mode the skip gate also skips HEVC/AV1 (those files only get their default tracks fixed).
+
+Q:  Will a Dolby Vision file still play on a device without Dolby Vision?
+
+A:  The flow doesn't change that, because DV video is never re-encoded.  Profile 7 and 8 files carry an HDR10 base layer, so non-DV players play the HDR10 (and Plex/Jellyfin tone-map to SDR when needed).  Profile 5 has no HDR10 fallback and needs a DV-capable player or server-side tone mapping; re-encoding it would break its colours, which is why the flow leaves DV video alone.
 
 ## Flow Screenshot
 The flow is huge, but here is an example.
@@ -199,6 +231,16 @@ The flow is huge, but here is an example.
 ## Release Notes
 
 Changelog:
+
+Fork changes (amlucent/Tdarr-One-Flow)
+
+ - Added v_max_resolution (downscale above a maximum resolution, bitrate follows the target tier) and v_max_bitdepth, with a combined scale + deinterlace filter chain
+ - Resolution and bit depth fall back to ffprobe when MediaInfo data is empty (previously every file landed on the 480p bitrate tier and HDR was encoded as 8-bit)
+ - Added replace-in-place mode (save_mode = replace) with atomic replace, Sonarr rescan/rename, and a skip gate for HEVC/AV1 and low-bitrate sources
+ - Dolby Vision video is stream-copied instead of re-encoded; audio cleanup and default tracks still run
+ - Default audio/subtitle tracks are set on every processed file (English audio default, English subs for foreign-language audio)
+ - The MKVPropEdit statistics refresh only runs on cache copies, never on source files; oversized encodes go to review
+ - Fixed libx265 arguments, skip AV1 sources, encode mono Opus tracks at the 1-channel bitrate
 
 V0.94
 
