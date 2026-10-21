@@ -86,6 +86,20 @@ Things to know:
 - Dolby Vision video is never re-encoded, so DV files keep their original resolution.
 - The job log shows what happened: `Resolution: source=3840x1604 (4k), max=1080p, downscaling to fit 1920x1080`.
 
+# Output Bit Depth (added in this fork)
+**Default (no bit depth variables set):** an encoded file keeps the bit depth of its source, as the flow always has. 8-bit in, 8-bit out; 10-bit (e.g. HDR) in, 10-bit out.
+
+**Recommended: `v_min_bitdepth = 10`.** Most WEB-DL and Blu-ray sources are 8-bit H.264. Encoding them to 10-bit HEVC does not add detail, but the encoder works at higher precision, so it makes fewer rounding errors: less banding in skies, dark scenes and fades, and usually a slightly smaller file at the same quality (a few percent with QSV, up to ~10% with x265). The cost is speed on the CPU encoder (libx265 is roughly 10-20% slower); hardware encoders (QSV, NVENC) run at about the same speed. High-bitrate sources such as Blu-ray remuxes benefit most.
+- It only changes files the flow is encoding anyway: it never triggers an encode on its own. Files the flow skips (already HEVC/AV1, low bitrate, Dolby Vision, video close to its target bitrate) keep their video untouched, so an existing 8-bit HEVC file stays 8-bit.
+- Playback: practically every device that direct-plays HEVC also plays 10-bit HEVC (Main 10): Apple TV 4K, recent smart TVs, Roku, Fire TV, Chromecast with Google TV, Nvidia Shield.
+- Not tested with `vaapi` (raising the depth there needs a format filter the flow does not add).
+
+**Older players: `v_max_bitdepth = 8`.** If your library is watched on older devices (roughly pre-2016 hardware, such as early HEVC streaming sticks or older GPUs/TVs) that play 8-bit HEVC but not 10-bit, 10-bit files would make Plex/Jellyfin transcode on the fly. Set `v_max_bitdepth = 8` (and leave `v_min_bitdepth` unset) to cap encodes at 8-bit. `v_min_bitdepth = 8` does nothing, because every source is already at least 8-bit. HDR sources are never encoded below 10-bit, whatever the settings: 8-bit HDR bands badly and players may show wrong colours.
+
+**`v_force_bitdepth`** sets a fixed depth for every encode (overrides both). Prefer `v_min_bitdepth = 10` (with `v_max_bitdepth = 10` if you also want 12-bit sources brought down to 10). 12-bit is not recommended: no common source needs it, files are not smaller, and almost no player hardware-decodes it; NVENC and AMF fall back to 10-bit anyway.
+
+The job log shows the decision, e.g. `Bit depth: source=8, min=10, raising to 10`.
+
 # Default Tracks
 Every file that goes through the flow gets its default flags fixed with `mkvpropedit` (header only, no remux, takes about a second). The preferred language is set per library with `default_track_language`; English is used when it isn't set. Below, "your language" means that setting:
 - The best audio track in your language (most channels, not commentary or descriptive) becomes the only default audio, and no subtitle is default. Forced flags are kept, so players still show forced subtitles when needed.
@@ -165,9 +179,9 @@ do_hevc = true # process hevc?
 
 encoder = nvenc/qsv/amf/vaapi/cpu - Override Encoder Autodetect and manually set what encoder to use (currently only nvenc/qsv/cpu work)
 
-v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted.
+v_max_bitdepth = 8/10/12 # Maximum output bit depth. Sources at or below this depth keep their native depth; sources above are downconverted. 8 suits older (roughly pre-2016) players that cannot play 10-bit HEVC; HDR always stays 10-bit
 
-v_min_bitdepth = 8/10/12 # Minimum output bit depth for files that are encoded anyway (10 is recommended for HEVC: less banding, slightly smaller). Never triggers an encode by itself, so already-HEVC files the flow skips stay 8-bit. Untested with vaapi (raising depth there needs a format filter the flow does not add)
+v_min_bitdepth = 8/10/12 # Minimum output bit depth for files that are encoded anyway; 10 is recommended (cleaner, slightly smaller encodes). Never triggers an encode by itself. Unset = keep the source depth. See Output Bit Depth
 
 v_force_bitdepth = 8/10/12 # Fixed output bit depth for encoded files; overrides v_min_bitdepth and v_max_bitdepth. Prefer v_min_bitdepth = 10. 12-bit is not recommended: almost no player hardware-decodes it, and NVENC/AMF fall back to 10
 
